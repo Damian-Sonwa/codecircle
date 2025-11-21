@@ -1925,24 +1925,48 @@ app.post('/api/tech-groups/:groupId/messages/:messageId/archive', async (req, re
 
 app.get('/api/tech-groups/:groupId', async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { groupId } = req.params;
-    const group = await TechGroup.findOne({ groupId });
+    if (!groupId || groupId.trim() === '') {
+      return res.status(400).json({ error: 'Group ID is required' });
+    }
+    
+    const group = await TechGroup.findOne({ groupId: groupId.trim() });
     if (!group) {
       return res.status(404).json({ error: 'Tech group not found' });
     }
     res.json(serializeGroup(group));
   } catch (error) {
     console.error('Get tech group error:', error);
-    res.status(500).json({ error: 'Failed to fetch tech group' });
+    res.status(500).json({ error: 'Failed to fetch tech group', details: error.message });
   }
 });
 
 app.patch('/api/tech-groups/:groupId', authenticateJWT, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { groupId } = req.params;
+    if (!groupId || groupId.trim() === '') {
+      return res.status(400).json({ error: 'Group ID is required' });
+    }
+    
     const { name, description, topics } = req.body;
 
-    const group = await TechGroup.findOne({ groupId });
+    const group = await TechGroup.findOne({ groupId: groupId.trim() });
     if (!group) {
       return res.status(404).json({ error: 'Tech group not found' });
     }
@@ -1980,8 +2004,20 @@ app.patch('/api/tech-groups/:groupId', authenticateJWT, async (req, res) => {
 
 app.delete('/api/tech-groups/:groupId', authenticateJWT, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { groupId } = req.params;
-    const group = await TechGroup.findOne({ groupId });
+    if (!groupId || groupId.trim() === '') {
+      return res.status(400).json({ error: 'Group ID is required' });
+    }
+    
+    const group = await TechGroup.findOne({ groupId: groupId.trim() });
     if (!group) {
       return res.status(404).json({ error: 'Tech group not found' });
     }
@@ -2763,28 +2799,52 @@ io.on('connection', (socket) => {
 // GET /api/users/:userId - Get single user
 app.get('/api/users/:userId', async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { userId } = req.params;
-    const user = await User.findOne({ userId }, { password: 0 });
+    if (!userId || userId.trim() === '') {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    const user = await User.findOne({ userId: userId.trim() }, { password: 0 });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     res.json(user);
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ error: 'Failed to fetch user' });
+    res.status(500).json({ error: 'Failed to fetch user', details: error.message });
   }
 });
 
 // PUT /api/users/:userId - Update user
 app.put('/api/users/:userId', authenticateJWT, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { userId } = req.params;
+    if (!userId || userId.trim() === '') {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
     // Users can only update themselves unless they're admin
-    if (req.user.userId !== userId && req.user.role !== 'admin') {
+    if (req.user.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ error: 'You can only update your own profile' });
     }
     
-    const user = await User.findOne({ userId });
+    const user = await User.findOne({ userId: userId.trim() });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -2940,21 +3000,41 @@ app.delete('/api/private-chats/:chatId', authenticateJWT, async (req, res) => {
 // GET /api/training-requests - Get all training requests
 app.get('/api/training-requests', authenticateJWT, async (req, res) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
     const query = isAdmin ? {} : { userId: req.user.userId };
     const requests = await TrainingRequest.find(query).sort({ createdAt: -1 });
     res.json(requests);
   } catch (error) {
     console.error('Get training requests error:', error);
-    res.status(500).json({ error: 'Failed to fetch training requests' });
+    res.status(500).json({ error: 'Failed to fetch training requests', details: error.message });
   }
 });
 
 // GET /api/training-requests/:requestId - Get single training request
 app.get('/api/training-requests/:requestId', authenticateJWT, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { requestId } = req.params;
-    const request = await TrainingRequest.findOne({ requestId });
+    if (!requestId || requestId.trim() === '') {
+      return res.status(400).json({ error: 'Request ID is required' });
+    }
+    
+    const request = await TrainingRequest.findOne({ requestId: requestId.trim() });
     if (!request) {
       return res.status(404).json({ error: 'Training request not found' });
     }
@@ -2964,7 +3044,7 @@ app.get('/api/training-requests/:requestId', authenticateJWT, async (req, res) =
     res.json(request);
   } catch (error) {
     console.error('Get training request error:', error);
-    res.status(500).json({ error: 'Failed to fetch training request' });
+    res.status(500).json({ error: 'Failed to fetch training request', details: error.message });
   }
 });
 
@@ -3001,8 +3081,20 @@ app.post('/api/training-requests', authenticateJWT, async (req, res) => {
 // PUT /api/training-requests/:requestId - Update training request
 app.put('/api/training-requests/:requestId', authenticateJWT, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { requestId } = req.params;
-    const request = await TrainingRequest.findOne({ requestId });
+    if (!requestId || requestId.trim() === '') {
+      return res.status(400).json({ error: 'Request ID is required' });
+    }
+    
+    const request = await TrainingRequest.findOne({ requestId: requestId.trim() });
     if (!request) {
       return res.status(404).json({ error: 'Training request not found' });
     }
@@ -3138,15 +3230,27 @@ app.post('/api/admin/logs', authenticateJWT, requireAdmin, async (req, res) => {
 // GET /api/admin/logs/:logId - Get single admin log
 app.get('/api/admin/logs/:logId', authenticateJWT, requireAdmin, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { logId } = req.params;
-    const log = await AdminLog.findOne({ logId });
+    if (!logId || logId.trim() === '') {
+      return res.status(400).json({ error: 'Log ID is required' });
+    }
+    
+    const log = await AdminLog.findOne({ logId: logId.trim() });
     if (!log) {
       return res.status(404).json({ error: 'Admin log not found' });
     }
     res.json(log);
   } catch (error) {
     console.error('Get admin log error:', error);
-    res.status(500).json({ error: 'Failed to fetch admin log' });
+    res.status(500).json({ error: 'Failed to fetch admin log', details: error.message });
   }
 });
 
@@ -3182,15 +3286,27 @@ app.post('/api/admin/violations', authenticateJWT, requireAdmin, async (req, res
 // GET /api/admin/violations/:violationId - Get single violation
 app.get('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { violationId } = req.params;
-    const violation = await Violation.findOne({ violationId });
+    if (!violationId || violationId.trim() === '') {
+      return res.status(400).json({ error: 'Violation ID is required' });
+    }
+    
+    const violation = await Violation.findOne({ violationId: violationId.trim() });
     if (!violation) {
       return res.status(404).json({ error: 'Violation not found' });
     }
     res.json(violation);
   } catch (error) {
     console.error('Get violation error:', error);
-    res.status(500).json({ error: 'Failed to fetch violation' });
+    res.status(500).json({ error: 'Failed to fetch violation', details: error.message });
   }
 });
 
