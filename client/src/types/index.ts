@@ -14,6 +14,7 @@ export interface User {
   skillLevel?: SkillLevel;
   hasOnboarded?: boolean;
   profileCompleted?: boolean;
+  onboardingCompleted?: boolean;
   friends?: UserSummary[];
   friendRequests?: UserSummary[];
   role?: 'member' | 'admin';
