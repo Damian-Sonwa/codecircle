@@ -1,8 +1,8 @@
 import {type ReactNode, useEffect, useState} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
-import {ConversationList} from '@/components/chat/ConversationList';
-import {ChatWindow} from '@/components/chat/ChatWindow';
-import {ProfileCard} from '@/components/chat/ProfileCard';
+import {ConversationList} from '@/components/Chat/ConversationList';
+import {ChatWindow} from '@/components/Chat/ChatWindow';
+import {ProfileCard} from '@/components/Chat/ProfileCard';
 import {useChatStore} from '@/store/chatStore';
 import {Menu, X} from 'lucide-react';
 

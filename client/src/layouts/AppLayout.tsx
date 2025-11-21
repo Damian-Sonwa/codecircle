@@ -5,8 +5,8 @@ import {NavigationDrawer} from '@/components/navigation/NavigationDrawer';
 import {OnboardingFlow} from '@/components/onboarding/OnboardingFlow';
 import {TourOverlay} from '@/components/onboarding/TourOverlay';
 import {Notifications} from '@/components/ui/Notifications';
-import {SettingsModal} from '@/components/chat/SettingsModal';
-import {RealtimeBridge} from '@/components/chat/RealtimeBridge';
+import {SettingsModal} from '@/components/Chat/SettingsModal';
+import {RealtimeBridge} from '@/components/Chat/RealtimeBridge';
 import {AmbientBackground} from '@/components/layout/AmbientBackground';
 import {useAuthStore} from '@/store/authStore';
 
