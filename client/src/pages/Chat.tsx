@@ -1,6 +1,6 @@
 import {useSearchParams} from 'react-router-dom';
 import {AppShell} from '@/components/layout/AppShell';
-import {ConversationList} from '@/components/Chat/ConversationList';
+import {ConversationList} from '@/components/chat/ConversationList';
 
 export const ChatPage = () => {
   const [params] = useSearchParams();
