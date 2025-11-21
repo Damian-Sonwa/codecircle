@@ -78,6 +78,12 @@ const RequireOnboarding = ({children}: {children: ReactNode}) => {
 };
 
 export default function App() {
+  // Version indicator - helps verify new builds are loaded
+  useEffect(() => {
+    console.log('[App] Version: 2024-01-15-refactor-v2');
+    console.log('[App] Routing: Auth-first, Onboarding-protected');
+  }, []);
+
   return (
     <BrowserRouter>
       <Suspense fallback={<LoadingScreen />}>
