@@ -1,4 +1,4 @@
-import {Suspense, type ReactNode} from 'react';
+import {Suspense, type ReactNode, useState, useEffect} from 'react';
 import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
 import {LoginPage} from '@/pages/Login';
 import {RegisterPage} from '@/pages/Register';
@@ -27,7 +27,28 @@ const LoadingScreen = () => (
 
 const RequireAuth = ({children}: {children: ReactNode}) => {
   const user = useAuthStore((state) => state.user);
-  return user ? children : <Navigate to="/login" replace />;
+  const [isChecking, setIsChecking] = useState(true);
+  
+  // Wait for Zustand persist to hydrate
+  useEffect(() => {
+    // Small delay to ensure Zustand persist has loaded from localStorage
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  console.log('[RequireAuth] User state:', user ? 'authenticated' : 'not authenticated', 'isChecking:', isChecking);
+  
+  if (isChecking) {
+    return <LoadingScreen />;
+  }
+  
+  if (!user) {
+    console.log('[RequireAuth] Redirecting to login...');
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
 };
 
 const RequireAdmin = ({children}: {children: ReactNode}) => {

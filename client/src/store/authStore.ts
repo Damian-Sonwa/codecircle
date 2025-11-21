@@ -32,20 +32,32 @@ export const useAuthStore = create<AuthState>()(
           });
         } else if (payload.token || payload.userId) {
           // Legacy format - convert to new format
+          // Map userId to _id and onboardingCompleted to hasOnboarded/profileCompleted
           const user = payload.user || {
-            userId: payload.userId,
+            _id: payload.userId || payload._id,
+            userId: payload.userId, // Keep both for compatibility
             username: payload.username,
-            role: payload.role,
-            onboardingCompleted: payload.onboardingCompleted,
-            email: payload.email,
-            online: payload.online,
-            lastSeen: payload.lastSeen
+            role: payload.role || 'member',
+            email: payload.email || '',
+            status: payload.online ? 'online' : 'offline',
+            lastSeen: payload.lastSeen,
+            hasOnboarded: payload.onboardingCompleted || false,
+            profileCompleted: payload.onboardingCompleted || false,
+            onboardingCompleted: payload.onboardingCompleted || false, // Keep for backward compatibility
+            skills: payload.skills || [],
+            skillLevel: payload.skillLevel,
+            avatarUrl: payload.avatarUrl,
+            bio: payload.bio,
+            xp: payload.xp || 0,
+            badges: payload.badges || []
           };
+          console.log('[AuthStore] Setting user:', { userId: user._id, username: user.username, hasOnboarded: user.hasOnboarded });
           set({
             user,
             accessToken: payload.token,
             refreshToken: payload.refreshToken
           });
+          console.log('[AuthStore] User state updated');
         } else {
           console.error('[AuthStore] Invalid auth payload:', payload);
           throw new Error('Invalid authentication response format');
