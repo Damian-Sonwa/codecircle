@@ -26,6 +26,7 @@ import {
   setAuthToken,
 } from './lib/api';
 import { cn } from './lib/utils';
+import { useAuthStore } from './store/authStore';
 
 const ChatAppBody = () => {
   const { user, logout, loading, updateUser } = useAuth();
@@ -791,8 +792,7 @@ const ChatAppBody = () => {
       setOnboardingState(null);
       onboardingKeyRef.current = null;
       // Clear all auth data
-      const { clearAuth } = require('../store/authStore');
-      clearAuth();
+      useAuthStore.getState().clearAuth();
       logout();
       // Clear all localStorage items related to auth
       localStorage.removeItem('user');
