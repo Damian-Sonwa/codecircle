@@ -46,6 +46,20 @@ const allowedOrigins = rawOrigins
   .map((origin) => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
+// Always allow localhost origins for local development
+const localhostOrigins = [
+  'http://localhost:5173',  // Vite dev server
+  'http://localhost:4173',  // Vite preview
+  'http://localhost:3000',  // Common React dev port
+  'http://localhost:5174',  // Alternative Vite port
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:4173',
+  'http://127.0.0.1:3000',
+];
+
+// Combine environment origins with localhost origins
+const allAllowedOrigins = [...new Set([...allowedOrigins, ...localhostOrigins])];
+
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (like Postman, mobile apps, or curl)
@@ -53,12 +67,21 @@ const corsOptions = {
       return callback(null, true);
     }
     const normalizedOrigin = origin.replace(/\/$/, '');
-    if (allowedOrigins.includes(normalizedOrigin)) {
+    
+    // Check if origin is allowed (including localhost)
+    if (allAllowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
+    
+    // Also allow any localhost origin (for development flexibility)
+    if (normalizedOrigin.startsWith('http://localhost:') || normalizedOrigin.startsWith('http://127.0.0.1:')) {
+      console.log(`[CORS] Allowing localhost origin: ${normalizedOrigin}`);
+      return callback(null, true);
+    }
+    
     // Log CORS rejection for debugging
-    console.warn(`[CORS] Origin ${origin} not allowed. Allowed origins:`, allowedOrigins);
-    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    console.warn(`[CORS] Origin ${normalizedOrigin} not allowed. Allowed origins:`, allAllowedOrigins);
+    return callback(new Error(`Origin ${normalizedOrigin} not allowed by CORS`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
