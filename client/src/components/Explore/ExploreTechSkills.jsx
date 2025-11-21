@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
-import { useSocket } from '../../contexts/SocketContext';
+import { useSocket } from '../../providers/SocketProvider';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserSkillProfile } from '../../hooks/useUserSkillProfile';
 import { TECH_SKILLS, SKILL_LEVELS } from '../../constants/techSkills';

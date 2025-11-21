@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSocket } from '../../contexts/SocketContext';
+import { useSocket } from '../../providers/SocketProvider';
 import { Button } from '../ui/button';
 import { Send, Smile, Paperclip, Mic, Square, Loader2 } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';

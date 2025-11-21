@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSocket } from '../../contexts/SocketContext';
+import { useSocket } from '../../providers/SocketProvider';
 import { useChatPreferences } from '../../hooks/useChatPreferences';
 
 const SKILL_CATEGORIES = [
