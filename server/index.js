@@ -2868,13 +2868,25 @@ app.put('/api/users/:userId', authenticateJWT, async (req, res) => {
 // DELETE /api/users/:userId - Delete user (soft delete)
 app.delete('/api/users/:userId', authenticateJWT, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { userId } = req.params;
+    if (!userId || userId.trim() === '') {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
     // Only admins or the user themselves can delete
-    if (req.user.userId !== userId && req.user.role !== 'admin') {
+    if (req.user.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    const user = await User.findOne({ userId });
+    const user = await User.findOne({ userId: userId.trim() });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -2887,7 +2899,7 @@ app.delete('/api/users/:userId', authenticateJWT, async (req, res) => {
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
+    res.status(500).json({ error: 'Failed to delete user', details: error.message });
   }
 });
 
@@ -3128,21 +3140,33 @@ app.put('/api/training-requests/:requestId', authenticateJWT, async (req, res) =
 // DELETE /api/training-requests/:requestId - Delete training request
 app.delete('/api/training-requests/:requestId', authenticateJWT, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { requestId } = req.params;
-    const request = await TrainingRequest.findOne({ requestId });
+    if (!requestId || requestId.trim() === '') {
+      return res.status(400).json({ error: 'Request ID is required' });
+    }
+    
+    const request = await TrainingRequest.findOne({ requestId: requestId.trim() });
     if (!request) {
       return res.status(404).json({ error: 'Training request not found' });
     }
     
-    if (req.user.role !== 'admin' && request.userId !== req.user.userId) {
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && request.userId !== req.user.userId) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
     
-    await TrainingRequest.deleteOne({ requestId });
+    await TrainingRequest.deleteOne({ requestId: requestId.trim() });
     res.json({ message: 'Training request deleted successfully' });
   } catch (error) {
     console.error('Delete training request error:', error);
-    res.status(500).json({ error: 'Failed to delete training request' });
+    res.status(500).json({ error: 'Failed to delete training request', details: error.message });
   }
 });
 
@@ -3334,17 +3358,29 @@ app.put('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, asy
 // DELETE /api/admin/violations/:violationId - Delete violation
 app.delete('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
     const { violationId } = req.params;
-    const violation = await Violation.findOne({ violationId });
+    if (!violationId || violationId.trim() === '') {
+      return res.status(400).json({ error: 'Violation ID is required' });
+    }
+    
+    const violation = await Violation.findOne({ violationId: violationId.trim() });
     if (!violation) {
       return res.status(404).json({ error: 'Violation not found' });
     }
     
-    await Violation.deleteOne({ violationId });
+    await Violation.deleteOne({ violationId: violationId.trim() });
     res.json({ message: 'Violation deleted successfully' });
   } catch (error) {
     console.error('Delete violation error:', error);
-    res.status(500).json({ error: 'Failed to delete violation' });
+    res.status(500).json({ error: 'Failed to delete violation', details: error.message });
   }
 });
 
