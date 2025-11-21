@@ -1,0 +1,29 @@
+{
+  "name": "chat-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Realtime chat application with React, Tailwind, Express, Socket.IO, and MongoDB",
+  "main": "index.js",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm --workspace client run dev\" \"npm --workspace server run dev\"",
+    "dev:client": "npm --workspace client run dev",
+    "dev:server": "npm --workspace server run dev",
+    "build": "npm --workspace client run build && npm --workspace server run build",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces",
+    "test:unit": "npm run test:unit --workspaces",
+    "test:e2e": "npm --workspace client run test:e2e"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "chat",
+    "realtime"
+  ],
+  "author": "",
+  "license": "MIT"
+}

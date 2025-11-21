@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark light;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  @apply min-h-screen bg-slate-950 text-slate-100 antialiased transition-colors duration-300;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.glass-card {
+  @apply bg-slate-900/60 backdrop-blur-lg border border-white/10;
+  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.3);
+}
+
+.light body {
+  @apply bg-slate-100 text-slate-900;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+  
+  /* Prevent horizontal scroll */
+  * {
+    max-width: 100%;
+  }
+}

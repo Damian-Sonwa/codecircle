@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: codecircle-api
+    env: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: "18"
+
+
