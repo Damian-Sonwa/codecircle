@@ -782,22 +782,33 @@ const ChatAppBody = () => {
     [user]
   );
 
-  const handleOnboardingComplete = useCallback(async () => {
+  const handleOnboardingComplete = useCallback(async (payload) => {
     if (!user || !onboardingKeyRef.current) return;
     try {
       await onboardingAPI.complete();
+      console.log('[App] Onboarding API call successful');
     } catch (error) {
-      console.error('Failed to mark onboarding complete', error);
+      console.error('[App] Failed to mark onboarding complete', error);
     }
 
     const next = {
       ...onboardingState,
       completed: true,
       completedAt: new Date().toISOString(),
+      ...(payload || {}),
     };
     localStorage.setItem(onboardingKeyRef.current, JSON.stringify(next));
     setOnboardingState(next);
-    updateUser({ onboardingCompleted: true });
+    updateUser({ 
+      onboardingCompleted: true,
+      hasOnboarded: true,
+      profileCompleted: true,
+      ...(payload?.data ? {
+        skills: payload.data.skills,
+        skillLevel: payload.data.level,
+      } : {})
+    });
+    console.log('[App] Onboarding marked as complete, modal should close');
   }, [user, onboardingState, updateUser]);
 
   const renderMainContent = useCallback(() => {

@@ -4,6 +4,8 @@ import { Button } from '../ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../providers/SocketProvider';
 import { techGroupsAPI } from '../../lib/api';
+import { api, endpoints } from '../../services/api';
+import { useAuthStore } from '../../store/authStore';
 import {
   ArrowLeft,
   ArrowRight,
@@ -129,6 +131,7 @@ const WELCOME_GROUP_NAME = 'CodeCircle Welcome Lounge';
 const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const updateUser = useAuthStore((state) => state.updateUser);
 
   const [stepIndex, setStepIndex] = useState(initialState?.currentStep ?? 0);
   const [completedSteps, setCompletedSteps] = useState(
@@ -429,9 +432,34 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
   };
 
   const handleFinish = async () => {
+    if (isProcessing) return; // Prevent double-clicks
     setIsProcessing(true);
     try {
       markCurrentStepComplete();
+      
+      // Call API to complete onboarding
+      try {
+        await api.post(endpoints.onboarding.complete, {
+          skills: formData.skills,
+          skillLevel: formData.level,
+          answers: formData.verification,
+        });
+        console.log('[Onboarding] Successfully completed onboarding via API');
+      } catch (apiError) {
+        console.error('[Onboarding] Failed to complete onboarding via API:', apiError);
+        // Continue anyway to update local state
+      }
+      
+      // Update user state to mark onboarding as complete
+      updateUser({
+        hasOnboarded: true,
+        profileCompleted: true,
+        onboardingCompleted: true,
+        skills: formData.skills,
+        skillLevel: formData.level,
+      });
+      console.log('[Onboarding] User state updated');
+      
       const payload = {
         completed: true,
         completedAt: new Date().toISOString(),
@@ -448,7 +476,16 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
           },
         },
       };
-      onComplete?.(payload);
+      
+      // Call onComplete callback (if provided) - this should close the modal
+      if (onComplete) {
+        console.log('[Onboarding] Calling onComplete callback');
+        onComplete(payload);
+      } else {
+        console.warn('[Onboarding] No onComplete callback provided');
+      }
+    } catch (error) {
+      console.error('[Onboarding] Error finishing onboarding:', error);
     } finally {
       setIsProcessing(false);
       clearTourHighlights();
