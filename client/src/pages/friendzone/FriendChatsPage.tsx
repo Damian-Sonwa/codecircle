@@ -1,5 +1,5 @@
 import {AppShell} from '@/components/layout/AppShell';
-import {ConversationList} from '@/components/chat/ConversationList';
+import {ConversationList} from '@/components/Chat/ConversationList';
 
 export const FriendChatsPage = () => {
   return (

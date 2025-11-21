@@ -2,11 +2,11 @@ import {type ReactNode, useEffect, useState} from 'react';
 import {Outlet, useLocation} from 'react-router-dom';
 import {AnimatePresence, motion} from 'framer-motion';
 import {NavigationDrawer} from '@/components/navigation/NavigationDrawer';
-import {OnboardingFlow} from '@/components/onboarding/OnboardingFlow';
-import {TourOverlay} from '@/components/onboarding/TourOverlay';
+import OnboardingFlow from '@/components/Onboarding/OnboardingFlow';
+import {TourOverlay} from '@/components/Onboarding/TourOverlay';
 import {Notifications} from '@/components/ui/Notifications';
-import {SettingsModal} from '@/components/chat/SettingsModal';
-import {RealtimeBridge} from '@/components/chat/RealtimeBridge';
+import {SettingsModal} from '@/components/Chat/SettingsModal';
+import {RealtimeBridge} from '@/components/Chat/RealtimeBridge';
 import {AmbientBackground} from '@/components/layout/AmbientBackground';
 import {useAuthStore} from '@/store/authStore';
 

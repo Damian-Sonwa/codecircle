@@ -17,12 +17,19 @@ const resolveAliasExtensions = () => {
         const basePath = path.resolve(srcDir, srcPath)
         const extensions = ['.tsx', '.ts', '.jsx', '.js', '.json']
         
+        // Check if both .tsx and .jsx exist, prefer .tsx
+        const tsxPath = basePath + '.tsx'
+        const jsxPath = basePath + '.jsx'
+        if (existsSync(tsxPath) && existsSync(jsxPath)) {
+          return path.normalize(tsxPath)
+        }
+        
         // Try each extension
         for (const ext of extensions) {
           const fullPath = basePath + ext
           try {
             if (existsSync(fullPath)) {
-              return fullPath
+              return path.normalize(fullPath)
             }
           } catch (e) {
             // Continue to next extension
@@ -36,7 +43,7 @@ const resolveAliasExtensions = () => {
             for (const indexFile of indexFiles) {
               const indexPath = path.join(basePath, indexFile)
               if (existsSync(indexPath)) {
-                return indexPath
+                return path.normalize(indexPath)
               }
             }
           }
@@ -52,7 +59,9 @@ const resolveAliasExtensions = () => {
 export default defineConfig({
   plugins: [resolveAliasExtensions(), react()], // Run our plugin first
   resolve: {
-    // Don't use alias here - let the plugin handle it completely
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    },
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
   },
   server: {

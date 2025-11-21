@@ -10,7 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Button } from '../ui/button';
-import ChatWindow from '../Chat/ChatWindow';
+import ChatWindow from '../chat/ChatWindow';
 import { cn } from '../../lib/utils';
 
 const FriendZone = ({

@@ -16,7 +16,7 @@ import {dirname} from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Custom plugin to resolve extensions for aliased imports
+// Custom plugin to resolve extensions for aliased imports (fallback)
 const resolveAliasExtensions = () => {
   const srcDir = path.resolve(__dirname, './src');
   
@@ -24,18 +24,26 @@ const resolveAliasExtensions = () => {
     name: 'resolve-alias-extensions',
     enforce: 'pre', // Run before other resolvers
     resolveId(source: string, _importer?: string) {
-      // Only handle @/ aliases
+      // Only handle @/ aliases that weren't resolved by Vite's alias
       if (source.startsWith('@/')) {
         const srcPath = source.replace('@/', '');
         const basePath = path.resolve(srcDir, srcPath);
         const extensions = ['.tsx', '.ts', '.jsx', '.js', '.json'];
+        
+        // Check if both .tsx and .jsx exist, prefer .tsx
+        const tsxPath = basePath + '.tsx';
+        const jsxPath = basePath + '.jsx';
+        if (existsSync(tsxPath) && existsSync(jsxPath)) {
+          return path.normalize(tsxPath);
+        }
         
         // Try each extension
         for (const ext of extensions) {
           const fullPath = basePath + ext;
           try {
             if (existsSync(fullPath)) {
-              return fullPath;
+              // Return normalized path for cross-platform compatibility
+              return path.normalize(fullPath);
             }
           } catch (e) {
             // Continue to next extension
@@ -49,7 +57,7 @@ const resolveAliasExtensions = () => {
             for (const indexFile of indexFiles) {
               const indexPath = path.join(basePath, indexFile);
               if (existsSync(indexPath)) {
-                return indexPath;
+                return path.normalize(indexPath);
               }
             }
           }
@@ -66,7 +74,9 @@ const resolveAliasExtensions = () => {
 export default defineConfig({
   plugins: [resolveAliasExtensions(), react()], // Run our plugin first
   resolve: {
-    // Don't use alias here - let the plugin handle it completely
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    },
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
   },
   optimizeDeps: {
