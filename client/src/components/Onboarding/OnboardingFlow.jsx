@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../providers/SocketProvider';
 import { techGroupsAPI } from '../../lib/api';
+import { useNotificationStore } from '../../store/notificationStore';
 import { api, endpoints } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import {
@@ -131,7 +133,9 @@ const WELCOME_GROUP_NAME = 'CodeCircle Welcome Lounge';
 const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const navigate = useNavigate();
   const updateUser = useAuthStore((state) => state.updateUser);
+  const pushNotification = useNotificationStore((state) => state.push);
 
   const [stepIndex, setStepIndex] = useState(initialState?.currentStep ?? 0);
   const [completedSteps, setCompletedSteps] = useState(
@@ -438,16 +442,24 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
       markCurrentStepComplete();
       
       // Call API to complete onboarding
+      let apiSuccess = false;
       try {
-        await api.post(endpoints.onboarding.complete, {
+        const response = await api.post(endpoints.onboarding.complete, {
           skills: formData.skills,
           skillLevel: formData.level,
           answers: formData.verification,
         });
-        console.log('[Onboarding] Successfully completed onboarding via API');
+        console.log('[Onboarding] Successfully completed onboarding via API', response.data);
+        apiSuccess = true;
       } catch (apiError) {
         console.error('[Onboarding] Failed to complete onboarding via API:', apiError);
-        // Continue anyway to update local state
+        // Show error but continue to update local state
+        pushNotification({
+          id: 'onboarding-api-error',
+          title: 'Warning',
+          message: 'Onboarding saved locally, but server sync failed. Please refresh.',
+          type: 'error'
+        });
       }
       
       // Update user state to mark onboarding as complete
@@ -459,6 +471,14 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
         skillLevel: formData.level,
       });
       console.log('[Onboarding] User state updated');
+      
+      // Show success notification
+      pushNotification({
+        id: 'onboarding-complete',
+        title: '🎉 Welcome to CodeCircle!',
+        message: 'Your profile is set up. Let\'s explore the platform!',
+        type: 'success'
+      });
       
       const payload = {
         completed: true,
@@ -484,6 +504,12 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
       } else {
         console.warn('[Onboarding] No onComplete callback provided');
       }
+      
+      // Navigate to dashboard after a short delay to show the success message
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+        console.log('[Onboarding] Navigating to dashboard');
+      }, 1000);
     } catch (error) {
       console.error('[Onboarding] Error finishing onboarding:', error);
     } finally {

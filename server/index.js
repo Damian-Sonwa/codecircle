@@ -2655,6 +2655,26 @@ io.on('connection', (socket) => {
   });
 });
 
+// Health check and root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'CodeCircle API Server', 
+    status: 'running',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      onboarding: '/api/onboarding',
+      friends: '/api/friends',
+      techGroups: '/api/tech-groups'
+    }
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Start HTTP server
 // MongoDB connection is handled in database.js import above
 const PORT = process.env.PORT || 5000;
