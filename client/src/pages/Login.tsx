@@ -1,4 +1,4 @@
-import {AuthSlider} from '@/components/auth/AuthSlider';
+import {AuthSlider} from '@/components/Auth/AuthSlider';
 
 export const LoginPage = () => <AuthSlider defaultView="login" />;
 
