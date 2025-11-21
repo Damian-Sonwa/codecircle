@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import {type FormEvent, useState, useEffect, useMemo} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import {useNavigate} from 'react-router-dom';
