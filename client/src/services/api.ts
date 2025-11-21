@@ -112,7 +112,7 @@ export const endpoints = {
     summary: (userId: string) => endpoint(`/api/users/${userId}/summary`)
   },
   onboarding: {
-    complete: endpoint('/api/onboarding'),
+    complete: endpoint('/api/onboarding/complete'),
     tourComplete: endpoint('/api/onboarding/tour-complete')
   },
   friends: {

@@ -981,20 +981,52 @@ app.get('/api/friends', authenticateJWT, async (req, res) => {
 
 app.post('/api/onboarding/complete', authenticateJWT, async (req, res) => {
   try {
+    console.log('[Onboarding] POST /api/onboarding/complete - Request received');
+    console.log('[Onboarding] Request body:', req.body);
+    console.log('[Onboarding] User ID:', req.user?.userId);
+    
     const currentUser = await User.findOne({ userId: req.user.userId });
     if (!currentUser) {
+      console.error('[Onboarding] User not found:', req.user.userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
+    console.log('[Onboarding] Current user onboarding status:', currentUser.onboardingCompleted);
+    
+    // Update onboarding status and save skills/skillLevel if provided
+    if (req.body.skills) {
+      currentUser.skills = req.body.skills;
+    }
+    if (req.body.skillLevel) {
+      currentUser.skillLevel = req.body.skillLevel;
+    }
+    if (req.body.answers) {
+      currentUser.onboardingAnswers = req.body.answers;
+    }
+    
     if (!currentUser.onboardingCompleted) {
       currentUser.onboardingCompleted = true;
       await currentUser.save();
       await ensureCoreGroupsForUser(currentUser);
+      console.log('[Onboarding] Onboarding marked as complete for user:', currentUser.username);
+    } else {
+      // Still save any updates even if already completed
+      await currentUser.save();
+      console.log('[Onboarding] User already completed onboarding, updated profile data');
     }
 
-    res.json({ onboardingCompleted: true });
+    res.json({ 
+      onboardingCompleted: true,
+      user: {
+        userId: currentUser.userId,
+        username: currentUser.username,
+        onboardingCompleted: currentUser.onboardingCompleted,
+        skills: currentUser.skills,
+        skillLevel: currentUser.skillLevel
+      }
+    });
   } catch (error) {
-    console.error('Onboarding completion error:', error);
+    console.error('[Onboarding] Onboarding completion error:', error);
     res.status(500).json({ error: 'Unable to update onboarding status right now.' });
   }
 });

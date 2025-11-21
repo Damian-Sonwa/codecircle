@@ -72,6 +72,19 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  skills: {
+    type: [String],
+    default: [],
+  },
+  skillLevel: {
+    type: String,
+    enum: ['Beginner', 'Intermediate', 'Professional'],
+    default: 'Beginner',
+  },
+  onboardingAnswers: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
   friends: {
     type: [String],
     default: [],
