@@ -19,12 +19,38 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: undefined,
       refreshToken: undefined,
-      setAuth: ({user, tokens}) =>
-        set({
-          user,
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken
-        }),
+      setAuth: (payload) => {
+        // Handle both response formats:
+        // 1. New format: {user, tokens: {accessToken, refreshToken}}
+        // 2. Legacy format: {userId, username, role, token, ...}
+        if (payload.tokens) {
+          // New format
+          set({
+            user: payload.user,
+            accessToken: payload.tokens?.accessToken,
+            refreshToken: payload.tokens?.refreshToken
+          });
+        } else if (payload.token || payload.userId) {
+          // Legacy format - convert to new format
+          const user = payload.user || {
+            userId: payload.userId,
+            username: payload.username,
+            role: payload.role,
+            onboardingCompleted: payload.onboardingCompleted,
+            email: payload.email,
+            online: payload.online,
+            lastSeen: payload.lastSeen
+          };
+          set({
+            user,
+            accessToken: payload.token,
+            refreshToken: payload.refreshToken
+          });
+        } else {
+          console.error('[AuthStore] Invalid auth payload:', payload);
+          throw new Error('Invalid authentication response format');
+        }
+      },
       setStatus: (status, lastSeen) =>
         set((state) =>
           state.user

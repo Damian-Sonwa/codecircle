@@ -18,6 +18,12 @@ console.log('[API] Base URL:', API_BASE_URL);
 console.log('[API] VITE_API_URL:', VITE_API_URL);
 console.log('[API] Base URL includes /api:', baseUrlHasApi);
 
+// Warn if API base URL is not set in production
+if (import.meta.env.PROD && !VITE_API_URL) {
+  console.warn('[API] WARNING: VITE_API_URL is not set in production! API calls may fail.');
+  console.warn('[API] Please set VITE_API_URL in your Netlify environment variables.');
+}
+
 // Helper to build endpoint paths
 // If baseURL already includes /api, don't add it again
 const endpoint = (path: string) => {
