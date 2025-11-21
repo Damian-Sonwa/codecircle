@@ -2,14 +2,36 @@
 import {defineConfig} from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import {existsSync} from 'fs';
+
+// Custom plugin to resolve extensions for aliased imports
+const resolveAliasExtensions = () => {
+  return {
+    name: 'resolve-alias-extensions',
+    resolveId(source, importer) {
+      if (source.startsWith('@/')) {
+        const srcPath = source.replace('@/', '');
+        const basePath = path.resolve(__dirname, './src', srcPath);
+        const extensions = ['.tsx', '.ts', '.jsx', '.js'];
+        
+        for (const ext of extensions) {
+          const fullPath = basePath + ext;
+          if (existsSync(fullPath)) {
+            return fullPath;
+          }
+        }
+      }
+      return null;
+    }
+  };
+};
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), resolveAliasExtensions()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@/': path.resolve(__dirname, './src/')
+      '@': path.resolve(__dirname, './src')
     },
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
   },
