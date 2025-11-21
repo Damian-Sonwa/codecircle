@@ -21,10 +21,19 @@ export const AppLayout = ({children}: Props) => {
   const location = useLocation();
 
   useEffect(() => {
-    if (user && (!user.hasOnboarded || !user.profileCompleted || !user.onboardingCompleted)) {
+    // Check if onboarding is needed
+    const needsOnboarding = user && (!user.hasOnboarded || !user.profileCompleted || !user.onboardingCompleted);
+    
+    if (needsOnboarding) {
       setShowOnboarding(true);
+      console.log('[AppLayout] Onboarding needed:', {
+        hasOnboarded: user?.hasOnboarded,
+        profileCompleted: user?.profileCompleted,
+        onboardingCompleted: user?.onboardingCompleted
+      });
     } else if (user && user.hasOnboarded && user.profileCompleted && user.onboardingCompleted) {
       setShowOnboarding(false);
+      console.log('[AppLayout] Onboarding complete, hiding modal');
     }
   }, [user]);
 
