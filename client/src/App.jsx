@@ -820,8 +820,14 @@ const ChatAppBody = () => {
     });
     console.log('[App] Onboarding marked as complete, modal should close');
     
-    // Ensure we navigate to dashboard view
+    // Ensure we navigate to dashboard view and clear onboarding state
     setActiveView('dashboard');
+    setOnboardingState(null);
+    
+    // Force a small delay to ensure state updates propagate
+    setTimeout(() => {
+      console.log('[App] Dashboard should now be visible');
+    }, 100);
   }, [user, onboardingState, updateUser, logout]);
 
   const renderMainContent = useCallback(() => {
@@ -942,7 +948,14 @@ const ChatAppBody = () => {
     );
   }
 
+  // Show auth page if no user, or if user explicitly logged out
+  // Check if there's a stored session that should be restored
   if (!user) {
+    // Clear any stale onboarding state when showing auth
+    if (onboardingState) {
+      setOnboardingState(null);
+      onboardingKeyRef.current = null;
+    }
     return <AuthPortal />;
   }
 

@@ -206,36 +206,84 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
   }, []);
 
   useEffect(() => {
-    if (!socket || !user) return undefined;
+    if (!user) return undefined;
     if (currentStep?.key !== 'groups') return undefined;
     if (formData.groups.autoJoined) return undefined;
 
     let cancelled = false;
+    let timeoutId = null;
 
     const joinWelcomeGroup = async () => {
       setIsProcessing(true);
-      const group = await ensureGroupAndJoin(WELCOME_GROUP_NAME);
-      if (!cancelled && group) {
+      console.log('[Onboarding] Starting welcome group join process');
+      
+      try {
+        const group = await ensureGroupAndJoin(WELCOME_GROUP_NAME);
+        if (!cancelled && group && group.groupId) {
+          setFormData((prev) => ({
+            ...prev,
+            groups: {
+              ...prev.groups,
+              autoJoined: true,
+              welcomeGroupId: group.groupId,
+            },
+          }));
+          console.log('[Onboarding] Welcome group joined successfully');
+        } else if (!cancelled) {
+          console.warn('[Onboarding] Welcome group join returned null, but continuing');
+          // Mark as joined anyway to prevent infinite retries
+          setFormData((prev) => ({
+            ...prev,
+            groups: {
+              ...prev.groups,
+              autoJoined: true,
+              welcomeGroupId: null,
+            },
+          }));
+        }
+      } catch (error) {
+        console.error('[Onboarding] Error joining welcome group:', error);
+        if (!cancelled) {
+          // Mark as joined to prevent blocking
+          setFormData((prev) => ({
+            ...prev,
+            groups: {
+              ...prev.groups,
+              autoJoined: true,
+              welcomeGroupId: null,
+            },
+          }));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsProcessing(false);
+        }
+      }
+    };
+
+    // Add a timeout to prevent infinite loading
+    timeoutId = setTimeout(() => {
+      if (!formData.groups.autoJoined && !cancelled) {
+        console.warn('[Onboarding] Welcome group join timeout, marking as complete');
         setFormData((prev) => ({
           ...prev,
           groups: {
             ...prev.groups,
             autoJoined: true,
-            welcomeGroupId: group.groupId,
+            welcomeGroupId: null,
           },
         }));
-      }
-      if (!cancelled) {
         setIsProcessing(false);
       }
-    };
+    }, 10000); // 10 second timeout
 
     joinWelcomeGroup();
 
     return () => {
       cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [currentStep?.key, formData.groups.autoJoined, socket, user]);
+  }, [currentStep?.key, formData.groups.autoJoined, user]);
 
   useEffect(() => {
     if (!onUpdate || !currentStep) return;
@@ -285,37 +333,72 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
   useEffect(() => () => clearTourHighlights(), []);
 
   const ensureGroupAndJoin = async (groupName) => {
-    if (!socket || !user) {
+    if (!user) {
+      console.error('[Onboarding] No user available for joining group');
       return null;
     }
+    
     try {
+      console.log(`[Onboarding] Ensuring group exists: ${groupName}`);
+      
+      // First, try to find existing group
       let group =
         groupsRef.current.find(
           (item) => item.name.toLowerCase() === groupName.toLowerCase()
         ) ?? null;
 
+      // If not found, try to create it
       if (!group) {
-        const created = await techGroupsAPI.create({
-          name: groupName,
-          createdBy: user.userId,
-        });
-        if (created) {
-          group = created;
-          setGroups((prev) => [...prev, created]);
+        console.log(`[Onboarding] Group not found, creating: ${groupName}`);
+        try {
+          const created = await techGroupsAPI.create({
+            name: groupName,
+            createdBy: user.userId,
+            description: 'Welcome to CodeCircle! This is your starting point.',
+            type: 'community',
+            topics: ['Welcome', 'Getting Started']
+          });
+          if (created && created.groupId) {
+            group = created;
+            setGroups((prev) => [...prev, created]);
+            console.log(`[Onboarding] Group created successfully: ${created.groupId}`);
+          } else {
+            console.error('[Onboarding] Group creation returned invalid data:', created);
+          }
+        } catch (createError) {
+          console.error('[Onboarding] Failed to create group:', createError);
+          // Try to find it again in case it was created by another process
+          const allGroups = await techGroupsAPI.list();
+          group = allGroups.find(
+            (item) => item.name.toLowerCase() === groupName.toLowerCase()
+          ) ?? null;
         }
       }
 
-      if (group) {
-        await techGroupsAPI.join(group.groupId, user.userId);
-        socket.emit('group:join', {
-          groupId: group.groupId,
-          userId: user.userId,
-        });
+      // Join the group if we have it
+      if (group && group.groupId) {
+        console.log(`[Onboarding] Joining group: ${group.groupId}`);
+        try {
+          await techGroupsAPI.join(group.groupId, user.userId);
+          if (socket && socket.connected) {
+            socket.emit('group:join', {
+              groupId: group.groupId,
+              userId: user.userId,
+            });
+          }
+          console.log(`[Onboarding] Successfully joined group: ${group.groupId}`);
+          return group;
+        } catch (joinError) {
+          console.error('[Onboarding] Failed to join group:', joinError);
+          // If join fails but group exists, return it anyway
+          return group;
+        }
+      } else {
+        console.error('[Onboarding] No group available to join');
+        return null;
       }
-
-      return group;
     } catch (error) {
-      console.error(`Failed to ensure tech group ${groupName}:`, error);
+      console.error(`[Onboarding] Failed to ensure tech group ${groupName}:`, error);
       return null;
     }
   };
@@ -398,10 +481,15 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
 
     if (key === 'verification') {
       const { motivation, recentWin } = formData.verification;
-      if (!motivation.trim() || !recentWin.trim()) {
+      if (!motivation || !motivation.trim() || !recentWin || !recentWin.trim()) {
         setErrorMessage(
           'Share a quick motivation and a recent win before continuing.'
         );
+        return;
+      }
+      // Ensure the data is properly formatted for POST
+      if (!formData.verification.motivation || !formData.verification.recentWin) {
+        setErrorMessage('Please fill in both fields before continuing.');
         return;
       }
     }
@@ -451,20 +539,32 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
       // Call API to complete onboarding
       let apiSuccess = false;
       try {
-        const response = await api.post(endpoints.onboarding.complete, {
-          skills: formData.skills,
-          skillLevel: formData.level,
-          answers: formData.verification,
-        });
+        // Ensure all required data is present
+        const payload = {
+          skills: formData.skills || [],
+          skillLevel: formData.level || 'Beginner',
+          answers: formData.verification || {
+            motivation: '',
+            recentWin: ''
+          }
+        };
+        
+        console.log('[Onboarding] Submitting onboarding completion:', payload);
+        const response = await api.post(endpoints.onboarding.complete, payload);
         console.log('[Onboarding] Successfully completed onboarding via API', response.data);
         apiSuccess = true;
       } catch (apiError) {
         console.error('[Onboarding] Failed to complete onboarding via API:', apiError);
+        console.error('[Onboarding] Error details:', {
+          message: apiError.message,
+          response: apiError.response?.data,
+          status: apiError.response?.status
+        });
         // Show error but continue to update local state
         pushNotification({
           id: 'onboarding-api-error',
           title: 'Warning',
-          message: 'Onboarding saved locally, but server sync failed. Please refresh.',
+          message: apiError.response?.data?.error || 'Onboarding saved locally, but server sync failed. Please refresh.',
           type: 'error'
         });
       }
@@ -512,23 +612,12 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
         console.warn('[Onboarding] No onComplete callback provided');
       }
       
-      // Force navigation to dashboard - use window.location if navigate doesn't work
+      // Wait a moment for state to update, then ensure we're in the app
       setTimeout(() => {
-        try {
-          navigate('/dashboard', { replace: true });
-          console.log('[Onboarding] Navigating to dashboard via navigate');
-          // Fallback: if still on onboarding after 2 seconds, force redirect
-          setTimeout(() => {
-            if (window.location.pathname !== '/dashboard') {
-              console.log('[Onboarding] Fallback: forcing redirect to dashboard');
-              window.location.href = '/dashboard';
-            }
-          }, 2000);
-        } catch (navError) {
-          console.error('[Onboarding] Navigation error, using window.location:', navError);
-          window.location.href = '/dashboard';
-        }
-      }, 1000);
+        console.log('[Onboarding] Onboarding complete, app should show dashboard');
+        // The app's handleOnboardingComplete will set activeView to 'dashboard'
+        // No need to navigate here as the app handles it via state
+      }, 500);
     } catch (error) {
       console.error('[Onboarding] Error finishing onboarding:', error);
     } finally {
