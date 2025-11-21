@@ -20,6 +20,9 @@ console.log('🔄 Connecting to MongoDB...');
 
 mongoose.connect(process.env.MONGO_URI, {
   dbName: 'chaturway001',
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 10000,
 })
   .then(() => {
     console.log(`✅ Connected to MongoDB → ${mongoose.connection.name}`);
@@ -27,6 +30,7 @@ mongoose.connect(process.env.MONGO_URI, {
   .catch((err) => {
     console.error('❌ MongoDB connection failed:', err.message);
     console.error('Check: IP whitelist, credentials, or cluster status in MongoDB Atlas');
+    console.warn('⚠️  Server will start anyway, but database features may be unavailable');
   });
 
 export default mongoose;

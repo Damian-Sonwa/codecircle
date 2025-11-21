@@ -2758,12 +2758,22 @@ mongoose.connection.on('error', (err) => {
   console.error('❌ MongoDB connection error:', err.message);
 });
 
-// Timeout fallback - start server even if DB connection is slow
+// Timeout fallback - start server even if DB connection is slow or fails
 // (Allows API to work, but some features may be unavailable)
 setTimeout(() => {
-  if (!httpServer.listening && mongoose.connection.readyState !== 0) {
-    console.log('\n⚠️  Starting server (MongoDB connection in progress)...');
+  if (!httpServer.listening) {
+    console.log('\n⚠️  Starting server (MongoDB connection may still be in progress)...');
+    console.log('   MongoDB readyState:', mongoose.connection.readyState);
+    console.log('   (0=disconnected, 1=connected, 2=connecting, 3=disconnecting)');
     startHTTPServer();
   }
-}, 2000);
+}, 3000);
+
+// Emergency fallback - start server after 10 seconds regardless of MongoDB status
+setTimeout(() => {
+  if (!httpServer.listening) {
+    console.log('\n🚨 Emergency server start (MongoDB connection timeout)...');
+    startHTTPServer();
+  }
+}, 10000);
 
