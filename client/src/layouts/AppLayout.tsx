@@ -21,8 +21,10 @@ export const AppLayout = ({children}: Props) => {
   const location = useLocation();
 
   useEffect(() => {
-    if (user && (!user.hasOnboarded || !user.profileCompleted)) {
+    if (user && (!user.hasOnboarded || !user.profileCompleted || !user.onboardingCompleted)) {
       setShowOnboarding(true);
+    } else if (user && user.hasOnboarded && user.profileCompleted && user.onboardingCompleted) {
+      setShowOnboarding(false);
     }
   }, [user]);
 

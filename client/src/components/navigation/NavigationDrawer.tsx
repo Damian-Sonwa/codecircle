@@ -72,7 +72,8 @@ export const NavigationDrawer = () => {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="group fixed left-2 top-2 sm:left-4 sm:top-4 z-40 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl border border-white/10 bg-slate-900/70 text-slate-100 shadow-glass transition hover:border-primaryTo hover:text-primaryTo"
+        className="group fixed left-2 top-2 sm:left-4 sm:top-4 z-40 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl border border-white/10 bg-slate-900/70 text-slate-100 shadow-glass transition-all hover:border-primaryTo hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/50"
+        aria-label="Open navigation menu"
       >
         <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
       </button>
@@ -94,7 +95,8 @@ export const NavigationDrawer = () => {
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="rounded-full border border-white/10 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 transition hover:text-primaryTo"
+                  className="rounded-full border border-white/10 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 transition-all hover:text-primaryTo hover:border-primaryTo/40 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
+                  aria-label="Close navigation menu"
                 >
                   Close
                 </button>
@@ -107,7 +109,7 @@ export const NavigationDrawer = () => {
                       to={item.to}
                       className={({isActive}) =>
                         cn(
-                          'group flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50',
+                          'group flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30',
                           isActive ? 'border-primaryTo/60 bg-slate-900/80 text-white shadow-inner' : ''
                         )
                       }
@@ -131,7 +133,7 @@ export const NavigationDrawer = () => {
                           <li key={category.label}>
                             <NavLink
                               to={category.path}
-                              className="block rounded-xl px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-800/70 hover:text-slate-100"
+                              className="block rounded-xl px-3 py-2 text-xs text-slate-400 transition-all hover:bg-slate-800/70 hover:text-slate-100 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/20"
                               onClick={() => setOpen(false)}
                             >
                               {category.label}
@@ -144,14 +146,14 @@ export const NavigationDrawer = () => {
                 ))}
                 <button
                   onClick={() => setSettingsOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-slate-300 transition hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
                 >
                   <Settings className="h-5 w-5 text-primaryTo" />
                   Open Preferences
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-rose-500/40 px-4 py-3 text-left text-sm text-rose-400 transition hover:bg-rose-500/20"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-rose-500/40 px-4 py-3 text-left text-sm text-rose-400 transition-all hover:bg-rose-500/20 hover:border-rose-500/60 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-rose-500/30"
                 >
                   <LogOut className="h-5 w-5" />
                   Logout
@@ -163,19 +165,19 @@ export const NavigationDrawer = () => {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleCreateQuickAction('post')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition hover:text-primaryTo"
+                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
                   >
                     <Plus className="h-4 w-4" /> Create Post
                   </button>
                   <button
                     onClick={() => handleCreateQuickAction('class')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition hover:text-primaryTo"
+                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
                   >
                     <Plus className="h-4 w-4" /> Create Class
                   </button>
                   <button
                     onClick={() => handleCreateQuickAction('message')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition hover:text-primaryTo"
+                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
                   >
                     <Plus className="h-4 w-4" /> New Message
                   </button>

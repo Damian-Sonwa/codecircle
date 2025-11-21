@@ -19,12 +19,30 @@ export const Notifications = () => {
           >
             <div className="flex items-start justify-between gap-2 sm:gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-sm sm:text-base font-semibold text-slate-100 break-words">{item.title}</p>
-                {item.message && <p className="text-xs sm:text-sm text-slate-300 break-words mt-1">{item.message}</p>}
+                <div className="flex items-center gap-2">
+                  {item.type === 'success' && (
+                    <div className="flex-shrink-0 h-5 w-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <span className="text-emerald-400 text-xs">✓</span>
+                    </div>
+                  )}
+                  {item.type === 'error' && (
+                    <div className="flex-shrink-0 h-5 w-5 rounded-full bg-red-500/20 flex items-center justify-center">
+                      <span className="text-red-400 text-xs">!</span>
+                    </div>
+                  )}
+                  {item.type === 'info' && (
+                    <div className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <span className="text-blue-400 text-xs">i</span>
+                    </div>
+                  )}
+                  <p className="text-sm sm:text-base font-semibold text-slate-100 break-words">{item.title}</p>
+                </div>
+                {item.message && <p className="text-xs sm:text-sm text-slate-300 break-words mt-1 ml-7">{item.message}</p>}
               </div>
               <button
                 onClick={() => dismiss(item.id)}
-                className="text-slate-400 transition hover:text-slate-100 flex-shrink-0 text-lg sm:text-xl leading-none"
+                className="text-slate-400 transition-all hover:text-slate-100 hover:bg-slate-800/50 rounded p-1 flex-shrink-0 text-lg sm:text-xl leading-none active:scale-90"
+                aria-label="Dismiss notification"
               >
                 ×
               </button>

@@ -57,14 +57,39 @@ const RequireAdmin = ({children}: {children: ReactNode}) => {
   return user.role === 'admin' ? children : <Navigate to="/dashboard" replace />;
 };
 
+const RequireOnboarding = ({children}: {children: ReactNode}) => {
+  const user = useAuthStore((state) => state.user);
+  const [isChecking, setIsChecking] = useState(true);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  if (isChecking) {
+    return <LoadingScreen />;
+  }
+  
+  // If user hasn't completed onboarding, they should be handled by AppLayout's onboarding modal
+  // This component just ensures they can't bypass it
+  return <>{children}</>;
+};
+
 export default function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
+          {/* Default route redirects to login */}
+          <Route index element={<Navigate to="/login" replace />} />
+          
+          {/* Auth routes - redirect to dashboard if already logged in */}
           <Route path="/login" element={<AuthPage component={<LoginPage />} />} />
           <Route path="/register" element={<AuthPage component={<RegisterPage />} />} />
 
+          {/* Protected routes - require auth AND onboarding */}
           <Route
             path="/"
             element={
@@ -74,21 +99,84 @@ export default function App() {
             }
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="messages" element={<ChatPage />} />
-            <Route path="friends" element={<FriendZone />}>
+            <Route 
+              path="dashboard" 
+              element={
+                <RequireOnboarding>
+                  <DashboardPage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="messages" 
+              element={
+                <RequireOnboarding>
+                  <ChatPage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="friends" 
+              element={
+                <RequireOnboarding>
+                  <FriendZone />
+                </RequireOnboarding>
+              }
+            >
               <Route index element={<Navigate to="/friends/requests" replace />} />
               <Route path="requests" element={<FriendRequestsPage />} />
               <Route path="my-friends" element={<MyFriendsPage />} />
               <Route path="chats" element={<FriendChatsPage />} />
               <Route path="notifications" element={<FriendNotificationsPage />} />
             </Route>
-            <Route path="explore" element={<ExplorePage />} />
-            <Route path="classroom" element={<ClassroomPage />} />
-            <Route path="knowledge" element={<KnowledgeHubPage />} />
-            <Route path="leaderboard" element={<LeaderboardPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route 
+              path="explore" 
+              element={
+                <RequireOnboarding>
+                  <ExplorePage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="classroom" 
+              element={
+                <RequireOnboarding>
+                  <ClassroomPage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="knowledge" 
+              element={
+                <RequireOnboarding>
+                  <KnowledgeHubPage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="leaderboard" 
+              element={
+                <RequireOnboarding>
+                  <LeaderboardPage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="profile" 
+              element={
+                <RequireOnboarding>
+                  <ProfilePage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="settings" 
+              element={
+                <RequireOnboarding>
+                  <SettingsPage />
+                </RequireOnboarding>
+              } 
+            />
             <Route
               path="admin"
               element={
