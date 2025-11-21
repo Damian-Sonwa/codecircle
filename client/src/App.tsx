@@ -27,25 +27,27 @@ const LoadingScreen = () => (
 
 const RequireAuth = ({children}: {children: ReactNode}) => {
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const [isChecking, setIsChecking] = useState(true);
   
   // Wait for Zustand persist to hydrate
   useEffect(() => {
-    // Small delay to ensure Zustand persist has loaded from localStorage
+    // Longer delay to ensure Zustand persist has loaded from localStorage
     const timer = setTimeout(() => {
       setIsChecking(false);
-    }, 100);
+    }, 300);
     return () => clearTimeout(timer);
   }, []);
   
-  console.log('[RequireAuth] User state:', user ? 'authenticated' : 'not authenticated', 'isChecking:', isChecking);
+  console.log('[RequireAuth] User state:', user ? 'authenticated' : 'not authenticated', 'isChecking:', isChecking, 'hasToken:', !!accessToken);
   
   if (isChecking) {
     return <LoadingScreen />;
   }
   
-  if (!user) {
-    console.log('[RequireAuth] Redirecting to login...');
+  // Check both user and token to ensure auth is complete
+  if (!user || !accessToken) {
+    console.log('[RequireAuth] No user or token, redirecting to login...');
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
@@ -211,7 +213,23 @@ export default function App() {
 
 const AuthPage = ({component}: {component: ReactNode}) => {
   const user = useAuthStore((state) => state.user);
-  if (user) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const [isChecking, setIsChecking] = useState(true);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  if (isChecking) {
+    return <LoadingScreen />;
+  }
+  
+  // Only redirect if both user and token exist
+  if (user && accessToken) {
+    console.log('[AuthPage] User already authenticated, redirecting to dashboard');
     return <Navigate to="/dashboard" replace />;
   }
   return component;
