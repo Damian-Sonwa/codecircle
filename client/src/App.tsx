@@ -80,8 +80,19 @@ const RequireOnboarding = ({children}: {children: ReactNode}) => {
 export default function App() {
   // Version indicator - helps verify new builds are loaded
   useEffect(() => {
-    console.log('[App] Version: 2024-01-15-refactor-v2');
+    const version = '2024-01-15-refactor-v3';
+    console.log('[App] Version:', version);
     console.log('[App] Routing: Auth-first, Onboarding-protected');
+    console.log('[App] Build Time:', new Date().toISOString());
+    
+    // Add visible version indicator in development
+    if (import.meta.env.DEV) {
+      const indicator = document.createElement('div');
+      indicator.id = 'version-indicator';
+      indicator.style.cssText = 'position:fixed;top:0;right:0;background:red;color:white;padding:4px 8px;font-size:10px;z-index:99999;font-family:monospace;';
+      indicator.textContent = `V: ${version}`;
+      document.body.appendChild(indicator);
+    }
   }, []);
 
   return (
