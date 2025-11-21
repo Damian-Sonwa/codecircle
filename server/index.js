@@ -698,6 +698,42 @@ const getChatId = (userId1, userId2) => {
   return [userId1, userId2].sort().join('-');
 };
 
+// API base route - defined early to ensure it's accessible before other /api/* routes
+app.get('/api', (req, res) => {
+  console.log('[API] GET /api - Request received');
+  res.json({ 
+    message: 'CodeCircle API', 
+    status: 'running',
+    version: '1.0.0',
+    baseUrl: '/api',
+    endpoints: {
+      auth: {
+        login: 'POST /api/auth/login',
+        signup: 'POST /api/auth/signup',
+        register: 'POST /api/register (legacy)',
+        loginLegacy: 'POST /api/login (legacy)'
+      },
+      users: {
+        getAll: 'GET /api/users',
+        getFriends: 'GET /api/friends (auth required)'
+      },
+      onboarding: {
+        complete: 'POST /api/onboarding/complete (auth required)'
+      },
+      friends: {
+        request: 'POST /api/friends/request (auth required)',
+        respond: 'POST /api/friends/respond (auth required)',
+        get: 'GET /api/friends (auth required)'
+      },
+      techGroups: {
+        getAll: 'GET /api/tech-groups',
+        create: 'POST /api/tech-groups'
+      }
+    },
+    documentation: 'See API_ROUTES_SUMMARY.md for complete API documentation'
+  });
+});
+
 // OAuth Routes (only register if strategies are configured)
 // These routes will only work if OAuth credentials are set in .env
 app.get('/api/auth/google', (req, res, next) => {
