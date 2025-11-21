@@ -1,8 +1,8 @@
+/// <reference types="react" />
 import {type FormEvent, useState, useEffect, useMemo} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import {useNavigate} from 'react-router-dom';
 import {api, endpoints} from '@/services/api';
-import {type AuthResponse} from '@/types';
 import {useAuthStore} from '@/store/authStore';
 
 interface Props {
@@ -42,18 +42,29 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
     setLoading(true);
     try {
       if (view === 'login') {
-        const {data} = await api.post<AuthResponse>(endpoints.auth.login, {identifier, password});
+        const {data} = await api.post(endpoints.auth.login, {identifier, password});
+        console.log('[Auth] Login response:', data);
+        if (!data) {
+          throw new Error('No response data received from server');
+        }
         setAuth(data);
       } else {
-        const {data} = await api.post<AuthResponse>(endpoints.auth.signup, {username, email, password});
+        const {data} = await api.post(endpoints.auth.signup, {username, email, password});
+        console.log('[Auth] Signup response:', data);
+        if (!data) {
+          throw new Error('No response data received from server');
+        }
         setAuth(data);
       }
       navigate('/dashboard');
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      console.error('Request URL:', error.config?.url);
-      console.error('Full error:', error.response?.data || error.message);
+    } catch (error: unknown) {
+      const err = error as {config?: {url?: string; baseURL?: string}; response?: {data?: {error?: string}}; message?: string};
+      console.error('[Auth] Error:', error);
+      console.error('[Auth] Request URL:', err.config?.url);
+      console.error('[Auth] Base URL:', err.config?.baseURL);
+      console.error('[Auth] Full error:', err.response?.data || err.message);
       // You can add a toast notification here if needed
+      alert(err.response?.data?.error || err.message || 'Authentication failed. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -74,7 +85,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
           >
             <div
               className="absolute inset-0 bg-cover bg-center"
-              style={{backgroundImage: `url(${carouselImages[activeSlide]})`}}
+              style={{backgroundImage: carouselImages[activeSlide] ? `url(${carouselImages[activeSlide]})` : undefined}}
             />
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-slate-950/90 to-slate-950/95 mix-blend-multiply" />
           </motion.div>
