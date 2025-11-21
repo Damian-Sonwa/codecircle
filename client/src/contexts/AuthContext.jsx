@@ -89,6 +89,9 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(null);
     setUser(null);
     localStorage.removeItem('user');
+    // Also clear Zustand store
+    const { clearAuth } = require('../store/authStore');
+    clearAuth();
   };
 
   const updateUser = (updates) => {

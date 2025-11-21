@@ -790,7 +790,19 @@ const ChatAppBody = () => {
       console.log('[App] User cancelled onboarding, logging out');
       setOnboardingState(null);
       onboardingKeyRef.current = null;
+      // Clear all auth data
+      const { clearAuth } = require('../store/authStore');
+      clearAuth();
       logout();
+      // Clear all localStorage items related to auth
+      localStorage.removeItem('user');
+      localStorage.removeItem('glasschat-auth');
+      // Clear onboarding state
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('onboardingState_')) {
+          localStorage.removeItem(key);
+        }
+      });
       return;
     }
     
@@ -808,7 +820,8 @@ const ChatAppBody = () => {
       ...(payload || {}),
     };
     localStorage.setItem(onboardingKeyRef.current, JSON.stringify(next));
-    setOnboardingState(next);
+    
+    // Update user state FIRST to mark onboarding as complete
     updateUser({ 
       onboardingCompleted: true,
       hasOnboarded: true,
@@ -818,17 +831,25 @@ const ChatAppBody = () => {
         skillLevel: payload.data.level,
       } : {})
     });
-    console.log('[App] Onboarding marked as complete, modal should close');
     
-    // Ensure we navigate to dashboard view and clear onboarding state
-    setActiveView('dashboard');
+    // Clear onboarding state to hide the modal
     setOnboardingState(null);
+    onboardingKeyRef.current = null;
+    
+    // Set active view to dashboard
+    setActiveView('dashboard');
+    
+    console.log('[App] Onboarding marked as complete, modal should close, dashboard should show');
     
     // Force a small delay to ensure state updates propagate
     setTimeout(() => {
-      console.log('[App] Dashboard should now be visible');
-    }, 100);
-  }, [user, onboardingState, updateUser, logout]);
+      console.log('[App] Dashboard should now be visible, activeView:', activeView);
+      // Double-check that we're on dashboard
+      if (activeView !== 'dashboard') {
+        setActiveView('dashboard');
+      }
+    }, 200);
+  }, [user, onboardingState, updateUser, logout, activeView]);
 
   const renderMainContent = useCallback(() => {
     const resolvedView = activeView === 'explore' ? 'messages' : activeView;
@@ -948,13 +969,20 @@ const ChatAppBody = () => {
     );
   }
 
-  // Show auth page if no user, or if user explicitly logged out
-  // Check if there's a stored session that should be restored
+  // Show auth page if no user
   if (!user) {
     // Clear any stale onboarding state when showing auth
     if (onboardingState) {
       setOnboardingState(null);
       onboardingKeyRef.current = null;
+    }
+    // Clear any stale auth data
+    const staleUser = localStorage.getItem('user');
+    const staleAuth = localStorage.getItem('glasschat-auth');
+    if (staleUser || staleAuth) {
+      console.log('[App] Clearing stale auth data');
+      localStorage.removeItem('user');
+      localStorage.removeItem('glasschat-auth');
     }
     return <AuthPortal />;
   }

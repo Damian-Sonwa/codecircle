@@ -606,18 +606,22 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
       
       // Call onComplete callback (if provided) - this should close the modal
       if (onComplete) {
-        console.log('[Onboarding] Calling onComplete callback');
+        console.log('[Onboarding] Calling onComplete callback with payload:', payload);
         onComplete(payload);
       } else {
         console.warn('[Onboarding] No onComplete callback provided');
+        // Fallback: try to update user state directly
+        updateUser({
+          hasOnboarded: true,
+          profileCompleted: true,
+          onboardingCompleted: true,
+          skills: formData.skills,
+          skillLevel: formData.level,
+        });
       }
       
-      // Wait a moment for state to update, then ensure we're in the app
-      setTimeout(() => {
-        console.log('[Onboarding] Onboarding complete, app should show dashboard');
-        // The app's handleOnboardingComplete will set activeView to 'dashboard'
-        // No need to navigate here as the app handles it via state
-      }, 500);
+      // Force close the modal by clearing local state
+      console.log('[Onboarding] Onboarding complete, waiting for app to handle navigation');
     } catch (error) {
       console.error('[Onboarding] Error finishing onboarding:', error);
     } finally {
