@@ -48,6 +48,7 @@ const allowedOrigins = rawOrigins
 
 const corsOptions = {
   origin: (origin, callback) => {
+    // Allow requests with no origin (like Postman, mobile apps, or curl)
     if (!origin) {
       return callback(null, true);
     }
@@ -55,11 +56,13 @@ const corsOptions = {
     if (allowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
+    // Log CORS rejection for debugging
+    console.warn(`[CORS] Origin ${origin} not allowed. Allowed origins:`, allowedOrigins);
     return callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200,
 };
 
