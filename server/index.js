@@ -40,7 +40,7 @@ app.use('/uploads', express.static(uploadsDir));
 const rawOrigins =
   process.env.ALLOWED_ORIGINS ||
   process.env.CLIENT_URL ||
-  'http://localhost:5173';
+  'codecircletech.netlify.app';
 const allowedOrigins = rawOrigins
   .split(',')
   .map((origin) => origin.trim().replace(/\/$/, ''))
