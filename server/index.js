@@ -715,6 +715,9 @@ app.get('/api', (req, res) => {
       },
       users: {
         getAll: 'GET /api/users',
+        getOne: 'GET /api/users/:userId',
+        update: 'PUT /api/users/:userId (auth required)',
+        delete: 'DELETE /api/users/:userId (auth required)',
         getFriends: 'GET /api/friends (auth required)'
       },
       onboarding: {
@@ -723,11 +726,69 @@ app.get('/api', (req, res) => {
       friends: {
         request: 'POST /api/friends/request (auth required)',
         respond: 'POST /api/friends/respond (auth required)',
-        get: 'GET /api/friends (auth required)'
+        get: 'GET /api/friends (auth required)',
+        add: 'POST /api/friends/add/:targetUserId (auth required)',
+        accept: 'POST /api/friends/accept/:requesterId (auth required)',
+        decline: 'DELETE /api/friends/decline/:requesterId (auth required)'
       },
       techGroups: {
         getAll: 'GET /api/tech-groups',
-        create: 'POST /api/tech-groups'
+        getOne: 'GET /api/tech-groups/:groupId',
+        create: 'POST /api/tech-groups',
+        update: 'PATCH /api/tech-groups/:groupId (auth required)',
+        delete: 'DELETE /api/tech-groups/:groupId (auth required)',
+        join: 'POST /api/tech-groups/:groupId/join-requests (auth required)',
+        addMember: 'POST /api/tech-groups/:groupId/members',
+        removeMember: 'DELETE /api/tech-groups/:groupId/members/:userId (auth required)',
+        archivedMessages: 'GET /api/tech-groups/:groupId/messages/archived',
+        archiveMessage: 'POST /api/tech-groups/:groupId/messages/:messageId/archive'
+      },
+      privateChats: {
+        getAll: 'GET /api/private-chats (auth required)',
+        getOne: 'GET /api/private-chats/:chatId (auth required)',
+        create: 'POST /api/private-chats (auth required)',
+        update: 'PUT /api/private-chats/:chatId (auth required)',
+        delete: 'DELETE /api/private-chats/:chatId (auth required)'
+      },
+      classroomRequests: {
+        getAll: 'GET /api/classroom-requests (auth required)',
+        create: 'POST /api/classroom-requests (auth required)',
+        update: 'PUT /api/classroom-requests/:requestId (auth required)',
+        delete: 'DELETE /api/classroom-requests/:requestId (auth required)',
+        approve: 'POST /api/admin/classroom-requests/:requestId/approve (admin)',
+        decline: 'POST /api/admin/classroom-requests/:requestId/decline (admin)',
+        adminGetAll: 'GET /api/admin/classroom-requests (admin)'
+      },
+      trainingRequests: {
+        getAll: 'GET /api/training-requests (auth required)',
+        getOne: 'GET /api/training-requests/:requestId (auth required)',
+        create: 'POST /api/training-requests (auth required)',
+        update: 'PUT /api/training-requests/:requestId (auth required)',
+        delete: 'DELETE /api/training-requests/:requestId (auth required)'
+      },
+      admin: {
+        users: 'GET /api/admin/users (admin)',
+        suspendUser: 'POST /api/admin/users/:userId/suspend (admin)',
+        restoreUser: 'POST /api/admin/users/:userId/restore (admin)',
+        deleteUser: 'POST /api/admin/users/:userId/delete (admin)',
+        logs: {
+          getAll: 'GET /api/admin/logs (admin)',
+          getOne: 'GET /api/admin/logs/:logId (admin)',
+          create: 'POST /api/admin/logs (admin)'
+        },
+        violations: {
+          getAll: 'GET /api/admin/violations (admin)',
+          getOne: 'GET /api/admin/violations/:violationId (admin)',
+          create: 'POST /api/admin/violations (admin)',
+          update: 'PUT /api/admin/violations/:violationId (admin)',
+          delete: 'DELETE /api/admin/violations/:violationId (admin)'
+        }
+      },
+      uploads: {
+        upload: 'POST /api/uploads'
+      },
+      translate: {
+        translate: 'POST /api/translate'
       }
     },
     documentation: 'See API_ROUTES_SUMMARY.md for complete API documentation'
@@ -2692,6 +2753,483 @@ io.on('connection', (socket) => {
       }
     }
   });
+});
+
+// ============================================
+// COMPLETE CRUD OPERATIONS FOR ALL MODELS
+// ============================================
+
+// ========== USER CRUD ==========
+// GET /api/users/:userId - Get single user
+app.get('/api/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findOne({ userId }, { password: 0 });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// PUT /api/users/:userId - Update user
+app.put('/api/users/:userId', authenticateJWT, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Users can only update themselves unless they're admin
+    if (req.user.userId !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You can only update your own profile' });
+    }
+    
+    const user = await User.findOne({ userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const allowedUpdates = ['username', 'email', 'avatar', 'bio', 'skills', 'skillLevel', 'onboardingAnswers'];
+    const updates = Object.keys(req.body).filter(key => allowedUpdates.includes(key));
+    
+    updates.forEach(update => {
+      user[update] = req.body[update];
+    });
+    
+    await user.save();
+    const { password, ...userWithoutPassword } = user.toObject();
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// DELETE /api/users/:userId - Delete user (soft delete)
+app.delete('/api/users/:userId', authenticateJWT, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Only admins or the user themselves can delete
+    if (req.user.userId !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    const user = await User.findOne({ userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    user.status = 'deleted';
+    user.deletedAt = new Date();
+    user.online = false;
+    await user.save();
+    
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// ========== PRIVATE CHAT CRUD ==========
+// GET /api/private-chats - Get all private chats for user
+app.get('/api/private-chats', authenticateJWT, async (req, res) => {
+  try {
+    const chats = await PrivateChat.find({
+      participants: req.user.userId
+    }).sort({ updatedAt: -1 });
+    res.json(chats);
+  } catch (error) {
+    console.error('Get private chats error:', error);
+    res.status(500).json({ error: 'Failed to fetch private chats' });
+  }
+});
+
+// GET /api/private-chats/:chatId - Get single private chat
+app.get('/api/private-chats/:chatId', authenticateJWT, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const chat = await PrivateChat.findOne({ chatId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    if (!chat.participants.includes(req.user.userId)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    res.json(chat);
+  } catch (error) {
+    console.error('Get private chat error:', error);
+    res.status(500).json({ error: 'Failed to fetch private chat' });
+  }
+});
+
+// POST /api/private-chats - Create new private chat
+app.post('/api/private-chats', authenticateJWT, async (req, res) => {
+  try {
+    const { participantId } = req.body;
+    if (!participantId) {
+      return res.status(400).json({ error: 'Participant ID is required' });
+    }
+    
+    const chatId = getChatId(req.user.userId, participantId);
+    let chat = await PrivateChat.findOne({ chatId });
+    
+    if (!chat) {
+      chat = new PrivateChat({
+        chatId,
+        participants: [req.user.userId, participantId],
+        messages: []
+      });
+      await chat.save();
+    }
+    
+    res.status(201).json(chat);
+  } catch (error) {
+    console.error('Create private chat error:', error);
+    res.status(500).json({ error: 'Failed to create private chat' });
+  }
+});
+
+// PUT /api/private-chats/:chatId - Update private chat
+app.put('/api/private-chats/:chatId', authenticateJWT, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const chat = await PrivateChat.findOne({ chatId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    if (!chat.participants.includes(req.user.userId)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    // Only allow updating certain fields
+    if (req.body.messages) {
+      chat.messages = req.body.messages;
+    }
+    
+    chat.updatedAt = new Date();
+    await chat.save();
+    res.json(chat);
+  } catch (error) {
+    console.error('Update private chat error:', error);
+    res.status(500).json({ error: 'Failed to update private chat' });
+  }
+});
+
+// DELETE /api/private-chats/:chatId - Delete private chat
+app.delete('/api/private-chats/:chatId', authenticateJWT, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const chat = await PrivateChat.findOne({ chatId });
+    if (!chat) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+    if (!chat.participants.includes(req.user.userId)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    await PrivateChat.deleteOne({ chatId });
+    res.json({ message: 'Chat deleted successfully' });
+  } catch (error) {
+    console.error('Delete private chat error:', error);
+    res.status(500).json({ error: 'Failed to delete private chat' });
+  }
+});
+
+// ========== TRAINING REQUEST CRUD ==========
+// GET /api/training-requests - Get all training requests
+app.get('/api/training-requests', authenticateJWT, async (req, res) => {
+  try {
+    const isAdmin = req.user.role === 'admin';
+    const query = isAdmin ? {} : { userId: req.user.userId };
+    const requests = await TrainingRequest.find(query).sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (error) {
+    console.error('Get training requests error:', error);
+    res.status(500).json({ error: 'Failed to fetch training requests' });
+  }
+});
+
+// GET /api/training-requests/:requestId - Get single training request
+app.get('/api/training-requests/:requestId', authenticateJWT, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await TrainingRequest.findOne({ requestId });
+    if (!request) {
+      return res.status(404).json({ error: 'Training request not found' });
+    }
+    if (req.user.role !== 'admin' && request.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    res.json(request);
+  } catch (error) {
+    console.error('Get training request error:', error);
+    res.status(500).json({ error: 'Failed to fetch training request' });
+  }
+});
+
+// POST /api/training-requests - Create training request
+app.post('/api/training-requests', authenticateJWT, async (req, res) => {
+  try {
+    const { requestedCourse, motivation = '' } = req.body;
+    if (!requestedCourse || requestedCourse.trim().length < 2) {
+      return res.status(400).json({ error: 'Course name must be at least 2 characters' });
+    }
+    
+    const user = await User.findOne({ userId: req.user.userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const request = new TrainingRequest({
+      requestId: generateId(),
+      userId: req.user.userId,
+      username: user.username,
+      requestedCourse: requestedCourse.trim(),
+      motivation: motivation.trim(),
+      status: 'pending'
+    });
+    await request.save();
+    
+    res.status(201).json(request);
+  } catch (error) {
+    console.error('Create training request error:', error);
+    res.status(500).json({ error: 'Failed to create training request' });
+  }
+});
+
+// PUT /api/training-requests/:requestId - Update training request
+app.put('/api/training-requests/:requestId', authenticateJWT, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await TrainingRequest.findOne({ requestId });
+    if (!request) {
+      return res.status(404).json({ error: 'Training request not found' });
+    }
+    
+    // Only admins can update status, users can only update their own pending requests
+    if (req.user.role !== 'admin') {
+      if (request.userId !== req.user.userId) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+      if (request.status !== 'pending') {
+        return res.status(400).json({ error: 'Can only update pending requests' });
+      }
+    }
+    
+    if (req.body.requestedCourse) request.requestedCourse = req.body.requestedCourse.trim();
+    if (req.body.motivation !== undefined) request.motivation = req.body.motivation.trim();
+    if (req.body.status && req.user.role === 'admin') {
+      request.status = req.body.status;
+      request.decidedBy = req.user.userId;
+      request.decidedAt = new Date();
+    }
+    
+    await request.save();
+    res.json(request);
+  } catch (error) {
+    console.error('Update training request error:', error);
+    res.status(500).json({ error: 'Failed to update training request' });
+  }
+});
+
+// DELETE /api/training-requests/:requestId - Delete training request
+app.delete('/api/training-requests/:requestId', authenticateJWT, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await TrainingRequest.findOne({ requestId });
+    if (!request) {
+      return res.status(404).json({ error: 'Training request not found' });
+    }
+    
+    if (req.user.role !== 'admin' && request.userId !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    await TrainingRequest.deleteOne({ requestId });
+    res.json({ message: 'Training request deleted successfully' });
+  } catch (error) {
+    console.error('Delete training request error:', error);
+    res.status(500).json({ error: 'Failed to delete training request' });
+  }
+});
+
+// ========== CLASSROOM REQUEST CRUD ==========
+// PUT /api/classroom-requests/:requestId - Update classroom request
+app.put('/api/classroom-requests/:requestId', authenticateJWT, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await ClassroomRequest.findOne({ requestId });
+    if (!request) {
+      return res.status(404).json({ error: 'Classroom request not found' });
+    }
+    
+    // Only creator can update pending requests, or admin can update any
+    if (req.user.role !== 'admin' && request.createdBy !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (request.status !== 'pending' && req.user.role !== 'admin') {
+      return res.status(400).json({ error: 'Can only update pending requests' });
+    }
+    
+    if (req.body.name) request.name = req.body.name.trim();
+    if (req.body.description !== undefined) request.description = req.body.description.trim();
+    if (req.body.adminNotes && req.user.role === 'admin') {
+      request.adminNotes = req.body.adminNotes.trim();
+    }
+    
+    await request.save();
+    res.json(serializeClassroomRequest(request));
+  } catch (error) {
+    console.error('Update classroom request error:', error);
+    res.status(500).json({ error: 'Failed to update classroom request' });
+  }
+});
+
+// DELETE /api/classroom-requests/:requestId - Delete classroom request
+app.delete('/api/classroom-requests/:requestId', authenticateJWT, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await ClassroomRequest.findOne({ requestId });
+    if (!request) {
+      return res.status(404).json({ error: 'Classroom request not found' });
+    }
+    
+    // Only creator or admin can delete
+    if (req.user.role !== 'admin' && request.createdBy !== req.user.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    await ClassroomRequest.deleteOne({ requestId });
+    res.json({ message: 'Classroom request deleted successfully' });
+  } catch (error) {
+    console.error('Delete classroom request error:', error);
+    res.status(500).json({ error: 'Failed to delete classroom request' });
+  }
+});
+
+// ========== ADMIN LOG CRUD ==========
+// POST /api/admin/logs - Create admin log (usually auto-created, but manual creation allowed)
+app.post('/api/admin/logs', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { action, targetUserId, targetUsername, details = '' } = req.body;
+    if (!action || !targetUserId || !targetUsername) {
+      return res.status(400).json({ error: 'Action, targetUserId, and targetUsername are required' });
+    }
+    
+    const log = new AdminLog({
+      logId: generateId(),
+      adminId: req.user.userId,
+      adminUsername: req.user.username,
+      action,
+      targetUserId,
+      targetUsername,
+      details: details.trim()
+    });
+    await log.save();
+    
+    res.status(201).json(log);
+  } catch (error) {
+    console.error('Create admin log error:', error);
+    res.status(500).json({ error: 'Failed to create admin log' });
+  }
+});
+
+// GET /api/admin/logs/:logId - Get single admin log
+app.get('/api/admin/logs/:logId', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { logId } = req.params;
+    const log = await AdminLog.findOne({ logId });
+    if (!log) {
+      return res.status(404).json({ error: 'Admin log not found' });
+    }
+    res.json(log);
+  } catch (error) {
+    console.error('Get admin log error:', error);
+    res.status(500).json({ error: 'Failed to fetch admin log' });
+  }
+});
+
+// ========== VIOLATION CRUD ==========
+// POST /api/admin/violations - Create violation (usually auto-created, but manual creation allowed)
+app.post('/api/admin/violations', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { userId, username, messageId, groupId, chatId, offendingContent, triggerWord, status = 'warning' } = req.body;
+    if (!userId || !username || !offendingContent || !triggerWord) {
+      return res.status(400).json({ error: 'userId, username, offendingContent, and triggerWord are required' });
+    }
+    
+    const violation = new Violation({
+      violationId: generateId(),
+      userId,
+      username,
+      messageId,
+      groupId,
+      chatId,
+      offendingContent,
+      triggerWord,
+      status
+    });
+    await violation.save();
+    
+    res.status(201).json(violation);
+  } catch (error) {
+    console.error('Create violation error:', error);
+    res.status(500).json({ error: 'Failed to create violation' });
+  }
+});
+
+// GET /api/admin/violations/:violationId - Get single violation
+app.get('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { violationId } = req.params;
+    const violation = await Violation.findOne({ violationId });
+    if (!violation) {
+      return res.status(404).json({ error: 'Violation not found' });
+    }
+    res.json(violation);
+  } catch (error) {
+    console.error('Get violation error:', error);
+    res.status(500).json({ error: 'Failed to fetch violation' });
+  }
+});
+
+// PUT /api/admin/violations/:violationId - Update violation
+app.put('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { violationId } = req.params;
+    const violation = await Violation.findOne({ violationId });
+    if (!violation) {
+      return res.status(404).json({ error: 'Violation not found' });
+    }
+    
+    if (req.body.status) violation.status = req.body.status;
+    if (req.body.offendingContent) violation.offendingContent = req.body.offendingContent;
+    if (req.body.triggerWord) violation.triggerWord = req.body.triggerWord;
+    
+    await violation.save();
+    res.json(violation);
+  } catch (error) {
+    console.error('Update violation error:', error);
+    res.status(500).json({ error: 'Failed to update violation' });
+  }
+});
+
+// DELETE /api/admin/violations/:violationId - Delete violation
+app.delete('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { violationId } = req.params;
+    const violation = await Violation.findOne({ violationId });
+    if (!violation) {
+      return res.status(404).json({ error: 'Violation not found' });
+    }
+    
+    await Violation.deleteOne({ violationId });
+    res.json({ message: 'Violation deleted successfully' });
+  } catch (error) {
+    console.error('Delete violation error:', error);
+    res.status(500).json({ error: 'Failed to delete violation' });
+  }
 });
 
 // Health check and root route
