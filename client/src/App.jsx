@@ -784,6 +784,16 @@ const ChatAppBody = () => {
 
   const handleOnboardingComplete = useCallback(async (payload) => {
     if (!user || !onboardingKeyRef.current) return;
+    
+    // If user wants to go back to auth, logout and clear onboarding
+    if (payload?.goBackToAuth || payload?.cancelled) {
+      console.log('[App] User cancelled onboarding, logging out');
+      setOnboardingState(null);
+      onboardingKeyRef.current = null;
+      logout();
+      return;
+    }
+    
     try {
       await onboardingAPI.complete();
       console.log('[App] Onboarding API call successful');
@@ -809,7 +819,10 @@ const ChatAppBody = () => {
       } : {})
     });
     console.log('[App] Onboarding marked as complete, modal should close');
-  }, [user, onboardingState, updateUser]);
+    
+    // Ensure we navigate to dashboard view
+    setActiveView('dashboard');
+  }, [user, onboardingState, updateUser, logout]);
 
   const renderMainContent = useCallback(() => {
     const resolvedView = activeView === 'explore' ? 'messages' : activeView;

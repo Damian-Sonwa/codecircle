@@ -368,7 +368,14 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
 
   const handlePrevious = () => {
     setErrorMessage('');
-    if (stepIndex === 0) return;
+    if (stepIndex === 0) {
+      // On welcome page, allow going back to auth by closing onboarding
+      if (onComplete) {
+        // Call onComplete with a flag to indicate user wants to go back
+        onComplete({ cancelled: true, goBackToAuth: true });
+      }
+      return;
+    }
     setStepIndex((prev) => Math.max(0, prev - 1));
   };
 
@@ -505,10 +512,22 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
         console.warn('[Onboarding] No onComplete callback provided');
       }
       
-      // Navigate to dashboard after a short delay to show the success message
+      // Force navigation to dashboard - use window.location if navigate doesn't work
       setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-        console.log('[Onboarding] Navigating to dashboard');
+        try {
+          navigate('/dashboard', { replace: true });
+          console.log('[Onboarding] Navigating to dashboard via navigate');
+          // Fallback: if still on onboarding after 2 seconds, force redirect
+          setTimeout(() => {
+            if (window.location.pathname !== '/dashboard') {
+              console.log('[Onboarding] Fallback: forcing redirect to dashboard');
+              window.location.href = '/dashboard';
+            }
+          }, 2000);
+        } catch (navError) {
+          console.error('[Onboarding] Navigation error, using window.location:', navError);
+          window.location.href = '/dashboard';
+        }
       }, 1000);
     } catch (error) {
       console.error('[Onboarding] Error finishing onboarding:', error);
@@ -862,10 +881,10 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
                 <Button
                   variant="ghost"
                   onClick={handlePrevious}
-                  disabled={stepIndex === 0 || isProcessing}
+                  disabled={isProcessing}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back
+                  {stepIndex === 0 ? 'Back to Login' : 'Back'}
                 </Button>
                 <Button onClick={handleNext} disabled={isProcessing}>
                   Continue
