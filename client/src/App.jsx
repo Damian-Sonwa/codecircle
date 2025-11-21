@@ -821,8 +821,9 @@ const ChatAppBody = () => {
     };
     localStorage.setItem(onboardingKeyRef.current, JSON.stringify(next));
     
-    // Update user state FIRST to mark onboarding as complete
-    updateUser({ 
+    // Update user state FIRST to mark onboarding as complete - this will hide the modal
+    // because needsOnboarding checks user.onboardingCompleted
+    const userUpdate = { 
       onboardingCompleted: true,
       hasOnboarded: true,
       profileCompleted: true,
@@ -830,25 +831,37 @@ const ChatAppBody = () => {
         skills: payload.data.skills,
         skillLevel: payload.data.level,
       } : {})
-    });
+    };
+    
+    console.log('[App] Updating user state to mark onboarding complete:', userUpdate);
+    updateUser(userUpdate);
+    
+    // Also update Zustand store to ensure consistency
+    useAuthStore.getState().updateUser(userUpdate);
     
     // Clear onboarding state to hide the modal
     setOnboardingState(null);
     onboardingKeyRef.current = null;
     
-    // Set active view to dashboard
+    // Set active view to dashboard immediately
     setActiveView('dashboard');
     
     console.log('[App] Onboarding marked as complete, modal should close, dashboard should show');
     
-    // Force a small delay to ensure state updates propagate
+    // Force a small delay to ensure state updates propagate and modal closes
     setTimeout(() => {
-      console.log('[App] Dashboard should now be visible, activeView:', activeView);
-      // Double-check that we're on dashboard
+      console.log('[App] Verifying dashboard is visible, activeView:', activeView);
+      // Double-check that we're on dashboard and onboarding is cleared
       if (activeView !== 'dashboard') {
+        console.log('[App] Forcing dashboard view');
         setActiveView('dashboard');
       }
-    }, 200);
+      // Ensure onboarding state is cleared
+      if (onboardingState) {
+        console.log('[App] Clearing remaining onboarding state');
+        setOnboardingState(null);
+      }
+    }, 300);
   }, [user, onboardingState, updateUser, logout, activeView]);
 
   const renderMainContent = useCallback(() => {
