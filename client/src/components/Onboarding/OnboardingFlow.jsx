@@ -827,7 +827,23 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
           </div>
         </div>
         <div className="text-sm font-medium text-primary">
-          {formData.groups.autoJoined ? 'Joined' : 'Connecting...'}
+          {formData.groups.autoJoined ? (
+            <span className="flex items-center gap-1">
+              <Check className="h-4 w-4" />
+              Joined
+            </span>
+          ) : isProcessing ? (
+            <span className="flex items-center gap-1">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full"
+              />
+              Connecting...
+            </span>
+          ) : (
+            'Ready'
+          )}
         </div>
       </div>
       <div className="grid gap-3">
@@ -899,9 +915,26 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleFinish} disabled={isProcessing}>
-              Finish onboarding
-              <Check className="ml-2 h-4 w-4" />
+            <Button 
+              onClick={handleFinish} 
+              disabled={isProcessing}
+              className="min-w-[140px]"
+            >
+              {isProcessing ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                    className="mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"
+                  />
+                  Finishing...
+                </>
+              ) : (
+                <>
+                  Finish onboarding
+                  <Check className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           )}
         </div>
