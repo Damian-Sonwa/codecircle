@@ -953,6 +953,24 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+      {/* Close button - visible on welcome page */}
+      {stepIndex === 0 && (
+        <button
+          onClick={() => {
+            console.log('[Onboarding] Close button clicked, going back to auth');
+            if (onComplete) {
+              onComplete({ cancelled: true, goBackToAuth: true });
+            }
+          }}
+          className="absolute top-4 right-4 z-50 rounded-full bg-background/90 hover:bg-background border border-border p-2 transition-all active:scale-95 shadow-lg"
+          aria-label="Close onboarding"
+          type="button"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
