@@ -2674,40 +2674,6 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/api', (req, res) => {
-  res.json({ 
-    message: 'CodeCircle API', 
-    status: 'running',
-    version: '1.0.0',
-    baseUrl: '/api',
-    endpoints: {
-      auth: {
-        login: 'POST /api/auth/login',
-        signup: 'POST /api/auth/signup',
-        register: 'POST /api/register (legacy)',
-        loginLegacy: 'POST /api/login (legacy)'
-      },
-      users: {
-        getAll: 'GET /api/users',
-        getFriends: 'GET /api/friends (auth required)'
-      },
-      onboarding: {
-        complete: 'POST /api/onboarding/complete (auth required)'
-      },
-      friends: {
-        request: 'POST /api/friends/request (auth required)',
-        respond: 'POST /api/friends/respond (auth required)',
-        get: 'GET /api/friends (auth required)'
-      },
-      techGroups: {
-        getAll: 'GET /api/tech-groups',
-        create: 'POST /api/tech-groups'
-      }
-    },
-    documentation: 'See API_ROUTES_SUMMARY.md for complete API documentation'
-  });
-});
-
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
