@@ -20,31 +20,46 @@ const __dirname = dirname(__filename);
 const resolveAliasExtensions = () => {
   return {
     name: 'resolve-alias-extensions',
-    resolveId(source: string) {
+    enforce: 'pre', // Run before other resolvers
+    resolveId(source: string, _importer?: string) {
+      // Only handle @/ aliases
       if (source.startsWith('@/')) {
         const srcPath = source.replace('@/', '');
         const basePath = path.resolve(__dirname, './src', srcPath);
-        const extensions = ['.tsx', '.ts', '.jsx', '.js'];
+        const extensions = ['.tsx', '.ts', '.jsx', '.js', '.json'];
         
+        // Try each extension
         for (const ext of extensions) {
           const fullPath = basePath + ext;
           if (existsSync(fullPath)) {
             return fullPath;
           }
         }
+        
+        // If no file found, try as directory with index
+        if (existsSync(basePath) && existsSync(path.join(basePath, 'index.tsx'))) {
+          return path.join(basePath, 'index.tsx');
+        }
+        if (existsSync(basePath) && existsSync(path.join(basePath, 'index.ts'))) {
+          return path.join(basePath, 'index.ts');
+        }
+        if (existsSync(basePath) && existsSync(path.join(basePath, 'index.jsx'))) {
+          return path.join(basePath, 'index.jsx');
+        }
+        if (existsSync(basePath) && existsSync(path.join(basePath, 'index.js'))) {
+          return path.join(basePath, 'index.js');
+        }
       }
-      return null;
+      return null; // Let other resolvers handle it
     }
   };
 };
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), resolveAliasExtensions()],
+  plugins: [resolveAliasExtensions(), react()], // Run our plugin first
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src')
-    },
+    // Don't use alias here - let the plugin handle it completely
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
   },
   optimizeDeps: {
