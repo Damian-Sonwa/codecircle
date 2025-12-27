@@ -1,5 +1,5 @@
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
-import {CalendarDays, Video, ClipboardList} from 'lucide-react';
+import {CalendarDays, Video, ClipboardList, GraduationCap} from 'lucide-react';
 import {api, endpoints} from '@/services/api';
 import {type Classroom, type LiveSessionApplication} from '@/types';
 import {useNotificationStore} from '@/store/notificationStore';
@@ -8,6 +8,7 @@ import {ApplicationStatusDisplay} from '@/components/Classroom/ApplicationStatus
 import {ClassroomEnvironment} from '@/components/Classroom/ClassroomEnvironment';
 import {useAppReady} from '@/hooks/useAppReady';
 import {AppLoader} from '@/components/layout/AppLoader';
+import {EmptyState} from '@/components/EmptyState';
 
 export const ClassroomPage = () => {
   const {appReady} = useAppReady();
@@ -43,10 +44,7 @@ export const ClassroomPage = () => {
     refetchOnWindowFocus: false,
   });
 
-  if (!appReady) {
-    return <AppLoader message="Loading classroom..." />;
-  }
-
+  // ALL MUTATION HOOKS MUST BE CALLED BEFORE CONDITIONAL RETURNS
   const registerMutation = useMutation({
     mutationFn: async ({classroomId, sessionId}: {classroomId: string; sessionId: string}) => {
       await api.post(endpoints.classrooms.register(classroomId, sessionId));
@@ -56,6 +54,11 @@ export const ClassroomPage = () => {
       pushNotification({id: `class-${Date.now()}`, title: 'Registered', message: 'You are in! Check your inbox for calendar invites.'});
     }
   });
+
+  // CONDITIONAL RETURN AFTER ALL HOOKS
+  if (!appReady) {
+    return <AppLoader message="Loading classroom..." />;
+  }
 
   // Determine what to show based on application status
   const showApplicationForm = !applicationStatus || applicationStatus.status === 'none' || !applicationStatus.application;

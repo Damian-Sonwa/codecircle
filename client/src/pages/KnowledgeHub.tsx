@@ -46,10 +46,7 @@ export const KnowledgeHubPage = () => {
     refetchOnWindowFocus: false,
   });
 
-  if (!appReady) {
-    return <AppLoader message="Loading knowledge hub..." />;
-  }
-
+  // ALL MUTATION HOOKS MUST BE CALLED BEFORE CONDITIONAL RETURNS
   const likeMutation = useMutation({
     mutationFn: (id: string) => api.post(endpoints.knowledge.like(id)),
     onSuccess: () => queryClient.invalidateQueries({queryKey: ['knowledge-feed']})
@@ -58,6 +55,11 @@ export const KnowledgeHubPage = () => {
     mutationFn: (id: string) => api.post(endpoints.knowledge.bookmark(id)),
     onSuccess: () => queryClient.invalidateQueries({queryKey: ['knowledge-feed']})
   });
+
+  // CONDITIONAL RETURN AFTER ALL HOOKS
+  if (!appReady) {
+    return <AppLoader message="Loading knowledge hub..." />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-4 sm:pb-8 pt-12 sm:pt-16">
