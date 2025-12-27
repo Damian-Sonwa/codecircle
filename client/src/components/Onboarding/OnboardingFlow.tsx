@@ -4,6 +4,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {useAuthStore} from '@/store/authStore';
 import {api, endpoints} from '@/services/api';
 import {useNotificationStore} from '@/store/notificationStore';
+import {cn} from '@/utils/styles';
 
 const skillOptions = ['Fullstack', 'Backend', 'Frontend', 'Cybersecurity', 'Data Science', 'Cloud', 'UI/UX', 'AI/ML'];
 const verificationQuestions = [
@@ -20,7 +21,7 @@ const verificationQuestions = [
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onTourStart: () => void;
+  onTourStart?: () => void;
 }
 
 export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
@@ -47,17 +48,90 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
   const submitOnboarding = async () => {
     setLoading(true);
     try {
-      await api.post(endpoints.onboarding.complete, {
+      // Validate required fields
+      if (selectedSkills.length === 0) {
+        pushNotification({
+          id: 'onboarding-error',
+          title: 'Skills Required',
+          message: 'Please select at least one skill area to continue.',
+          type: 'error'
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (!skillLevel) {
+        pushNotification({
+          id: 'onboarding-error',
+          title: 'Skill Level Required',
+          message: 'Please select your skill level to continue.',
+          type: 'error'
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Call API to complete onboarding
+      try {
+        await api.post(endpoints.onboarding.complete, {
+          skills: selectedSkills,
+          skillLevel,
+          answers
+        });
+        console.log('[Onboarding] Successfully completed onboarding via API');
+      } catch (apiError: any) {
+        console.error('[Onboarding] API error:', apiError);
+        pushNotification({
+          id: 'onboarding-api-error',
+          title: 'Warning',
+          message: apiError.response?.data?.error || 'Onboarding saved locally, but server sync failed.',
+          type: 'error'
+        });
+        // Continue anyway to update local state
+      }
+      
+      // Update user state to mark onboarding as complete
+      // This must happen BEFORE navigation
+      updateUser({
+        hasOnboarded: true,
+        profileCompleted: true,
+        onboardingCompleted: true,
         skills: selectedSkills,
-        skillLevel,
-        answers
+        skillLevel
       });
-      updateUser({hasOnboarded: true, profileCompleted: true, skills: selectedSkills, skillLevel});
+      
+      console.log('[Onboarding] User state updated, waiting for persistence...');
+      
+      // Invalidate queries
       queryClient.invalidateQueries({queryKey: ['conversations']});
-      pushNotification({id: 'onboarding-complete', title: 'Welcome aboard!', message: 'You have been added to the Welcome Lounge.'});
-      onTourStart();
+      
+      // Show success notification
+      pushNotification({
+        id: 'onboarding-complete',
+        title: '🎉 Welcome aboard!',
+        message: 'Your profile is set up. You have been added to the Welcome Lounge.',
+        type: 'success'
+      });
+      
+      // Close onboarding modal
       reset();
       onClose();
+      
+      // Wait longer for Zustand persist to save and state to propagate
+      setTimeout(() => {
+        console.log('[Onboarding] Navigating to dashboard with hard reload...');
+        // Use window.location for a hard navigation to ensure clean state
+        // This forces a full page reload so RequireAuth sees the updated user
+        window.location.href = '/dashboard';
+      }, 800);
+    } catch (error: any) {
+      console.error('[Onboarding] Error:', error);
+      pushNotification({
+        id: 'onboarding-error',
+        title: 'Error',
+        message: error.message || 'Failed to complete onboarding. Please try again.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -87,8 +161,8 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
                         onClick={() => toggleSkill(skill)}
                         className={
                           selectedSkills.includes(skill)
-                            ? 'rounded-xl sm:rounded-2xl border border-primaryTo/60 bg-primaryFrom/40 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-lift'
-                            : 'rounded-xl sm:rounded-2xl border border-white/10 bg-slate-900/60 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-300 transition hover:border-primaryFrom/40'
+                            ? 'rounded-xl sm:rounded-2xl border border-primaryTo/60 bg-primaryFrom/40 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-lift transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/50'
+                            : 'rounded-xl sm:rounded-2xl border border-white/10 bg-slate-900/60 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-800/60 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryFrom/30'
                         }
                       >
                         {skill}
@@ -107,8 +181,8 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
                         key={level}
                         onClick={() => setSkillLevel(level)}
                         className={cn(
-                          'rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-900/60 px-3 sm:px-4 md:px-5 py-4 sm:py-5 md:py-6 text-left text-xs sm:text-sm text-slate-200 transition hover:border-primaryTo/40',
-                          skillLevel === level && 'border-primaryTo/60 bg-primaryFrom/30 text-white shadow-lift'
+                          'rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-900/60 px-3 sm:px-4 md:px-5 py-4 sm:py-5 md:py-6 text-left text-xs sm:text-sm text-slate-200 transition-all hover:border-primaryTo/40 hover:bg-slate-800/60 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30',
+                          skillLevel === level ? 'border-primaryTo/60 bg-primaryFrom/30 text-white shadow-lift' : undefined
                         )}
                       >
                         <span className="text-base sm:text-lg font-semibold">{level}</span>
@@ -132,7 +206,7 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
                       <textarea
                         value={answers[item.key] ?? ''}
                         onChange={(event) => setAnswers((prev) => ({...prev, [item.key]: event.target.value}))}
-                        className="mt-2 w-full rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-900/70 p-3 sm:p-4 text-xs sm:text-sm text-slate-100 focus:border-primaryTo focus:outline-none"
+                        className="mt-2 w-full rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-900/70 p-3 sm:p-4 text-xs sm:text-sm text-slate-100 transition-all focus:border-primaryTo focus:outline-none focus:ring-2 focus:ring-primaryTo/30 hover:border-white/20"
                         rows={3}
                         placeholder="Share a quick thought"
                       />
@@ -147,7 +221,7 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
                   reset();
                   onClose();
                 }}
-                className="rounded-full border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs tracking-wide text-slate-300 transition hover:text-primaryTo"
+                className="rounded-full border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs tracking-wide text-slate-300 transition-all hover:text-primaryTo hover:border-primaryTo/40 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
               >
                 Skip for now
               </button>
@@ -155,7 +229,7 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
                 {step > 0 && (
                   <button
                     onClick={() => setStep((prev) => prev - 1)}
-                    className="rounded-full border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-200 transition hover:border-primaryTo"
+                    className="rounded-full border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-200 transition-all hover:border-primaryTo hover:bg-slate-800/40 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
                   >
                     Back
                   </button>
@@ -164,7 +238,7 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
                   <button
                     onClick={() => setStep((prev) => prev + 1)}
                     disabled={step === 0 && selectedSkills.length === 0}
-                    className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:scale-[1.02] disabled:opacity-60"
+                    className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition-all hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primaryTo/50"
                   >
                     Next
                   </button>
@@ -173,7 +247,7 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
                   <button
                     onClick={submitOnboarding}
                     disabled={loading}
-                    className="rounded-full bg-gradient-to-r from-secondaryFrom to-secondaryTo px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:scale-[1.02] disabled:opacity-60"
+                    className="rounded-full bg-gradient-to-r from-secondaryFrom to-secondaryTo px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition-all hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-secondaryTo/50"
                   >
                     {loading ? 'Saving...' : 'Finish & Start Tour'}
                   </button>
@@ -186,8 +260,4 @@ export const OnboardingFlow = ({visible, onClose, onTourStart}: Props) => {
     </AnimatePresence>
   );
 };
-
-function cn(...classes: Array<string | false | undefined>) {
-  return classes.filter(Boolean).join(' ');
-}
 

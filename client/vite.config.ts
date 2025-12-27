@@ -83,13 +83,20 @@ export default defineConfig({
     include: ['react', 'react-dom']
   },
   server: {
+    port: 5173,
+    host: '0.0.0.0',
     proxy: {
-      '/api': 'http://localhost:4000',
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
       '/socket.io': {
-        target: 'http://localhost:4000',
-        ws: true
-      }
-    }
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
   // Vitest configuration
   test: {

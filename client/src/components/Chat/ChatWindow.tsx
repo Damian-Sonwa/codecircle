@@ -10,7 +10,7 @@ import {getSocket} from '@/services/socket';
 import {api, endpoints} from '@/services/api';
 import {useQueryClient} from '@tanstack/react-query';
 
-export const ChatWindow = () => {
+const ChatWindow = () => {
   const activeConversationId = useChatStore((state) => state.activeConversationId);
   const typing = useChatStore((state) => state.typing);
   const encryptionPreview = useChatStore((state) => state.encryptionPreview);
@@ -122,4 +122,6 @@ export const ChatWindow = () => {
     </section>
   );
 };
+
+export default ChatWindow;
 

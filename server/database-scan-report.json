@@ -1,0 +1,284 @@
+{
+  "scannedAt": "2025-12-26T17:47:25.170Z",
+  "collections": {
+    "messages": {
+      "count": 0,
+      "fields": [],
+      "sample": null
+    },
+    "privatechats": {
+      "count": 5,
+      "fields": [
+        "_id",
+        "chatId",
+        "participants",
+        "messages",
+        "createdAt",
+        "updatedAt",
+        "__v"
+      ],
+      "sample": {
+        "_id": "69025a8c23c538734ce4ee56",
+        "chatId": "fz5exwhz0jwklmptsarjt-parkxvvyvhvq6ep2vk17a",
+        "participants": [
+          "parkxvvyvhvq6ep2vk17a",
+          "fz5exwhz0jwklmptsarjt"
+        ],
+        "messages": [
+          {
+            "messageId": "9c72mys451koj5mjyit82d",
+            "userId": "parkxvvyvhvq6ep2vk17a",
+            "username": "john_doe",
+            "message": "Hey! How are you? 😊",
+            "timestamp": "2025-10-29T16:18:52.173Z",
+            "readBy": [
+              "parkxvvyvhvq6ep2vk17a",
+              "fz5exwhz0jwklmptsarjt"
+            ],
+            "_id": "69025a8c23c538734ce4ee57"
+          },
+          {
+            "messageId": "qn9suxemejqr7gfi9k3",
+            "userId": "fz5exwhz0jwklmptsarjt",
+            "username": "jane_smith",
+            "message": "I'm doing great! Thanks for asking! 💚",
+            "timestamp": "2025-10-29T16:23:52.173Z",
+            "reactions": {
+              "❤️": [
+                "parkxvvyvhvq6ep2vk17a"
+              ]
+            },
+            "readBy": [
+              "fz5exwhz0jwklmptsarjt",
+              "parkxvvyvhvq6ep2vk17a"
+            ],
+            "_id": "69025a8c23c538734ce4ee58"
+          },
+          {
+            "messageId": "dcma7zlet7aay6tx808w7t",
+            "userId": "parkxvvyvhvq6ep2vk17a",
+            "username": "john_doe",
+            "message": "That's awesome! Let's catch up soon 🎯",
+            "timestamp": "2025-10-29T16:28:52.173Z",
+            "readBy": [
+              "parkxvvyvhvq6ep2vk17a",
+              "fz5exwhz0jwklmptsarjt"
+            ],
+            "_id": "69025a8c23c538734ce4ee59"
+          }
+        ],
+        "createdAt": "2025-10-29T16:18:52.173Z",
+        "updatedAt": "2025-10-29T16:28:52.173Z",
+        "__v": 0
+      }
+    },
+    "trainingrequests": {
+      "count": 0,
+      "fields": [],
+      "sample": null
+    },
+    "violations": {
+      "count": 0,
+      "fields": [],
+      "sample": null
+    },
+    "techgroups": {
+      "count": 7,
+      "fields": [
+        "_id",
+        "groupId",
+        "name",
+        "description",
+        "createdBy",
+        "members",
+        "topics",
+        "messages",
+        "createdAt",
+        "updatedAt",
+        "__v",
+        "admins",
+        "joinRequests",
+        "type"
+      ],
+      "sample": {
+        "_id": "690e541714862c1b00ee82de",
+        "groupId": "feqvchnwpzmyv5z03ww1ms",
+        "name": "busy fingers",
+        "description": "",
+        "createdBy": "bb8232vnzb8gr6dhzjuoin",
+        "members": [
+          "bb8232vnzb8gr6dhzjuoin",
+          "zphzqjz2wvbf7aj1udkq6w",
+          "iin5d4m614jtspg9ismfjq"
+        ],
+        "topics": [],
+        "messages": [
+          {
+            "messageId": "qlyjru940hd0sarsgp0iuh",
+            "groupId": "feqvchnwpzmyv5z03ww1ms",
+            "userId": "bb8232vnzb8gr6dhzjuoin",
+            "username": "Damian25",
+            "message": "hi everyone",
+            "timestamp": "2025-11-07T20:19:07.066Z",
+            "reactions": {},
+            "readBy": [
+              "bb8232vnzb8gr6dhzjuoin"
+            ]
+          }
+        ],
+        "createdAt": "2025-11-07T20:18:31.691Z",
+        "updatedAt": "2025-11-10T17:43:01.670Z",
+        "__v": 3,
+        "admins": [],
+        "joinRequests": [],
+        "type": "community"
+      }
+    },
+    "adminlogs": {
+      "count": 0,
+      "fields": [],
+      "sample": null
+    },
+    "classroomrequests": {
+      "count": 3,
+      "fields": [
+        "_id",
+        "requestId",
+        "name",
+        "description",
+        "createdBy",
+        "createdByUsername",
+        "status",
+        "approvedBy",
+        "approvedByUsername",
+        "approvedAt",
+        "adminNotes",
+        "groupId",
+        "createdAt",
+        "updatedAt",
+        "__v"
+      ],
+      "sample": {
+        "_id": "691204d3f71eb7b581d1cd26",
+        "requestId": "8cop4ugqx8fv41584jh5uj",
+        "name": "hands on",
+        "description": "",
+        "createdBy": "iin5d4m614jtspg9ismfjq",
+        "createdByUsername": "joe@gmail.com",
+        "status": "declined",
+        "approvedBy": "vrvs9h6gm42tzu2666cmx",
+        "approvedByUsername": "admin.chaturway",
+        "approvedAt": "2025-11-10T20:36:41.516Z",
+        "adminNotes": "apply later",
+        "groupId": null,
+        "createdAt": "2025-11-10T15:29:23.214Z",
+        "updatedAt": "2025-11-10T20:36:41.518Z",
+        "__v": 0
+      }
+    },
+    "users": {
+      "count": 15,
+      "fields": [
+        "_id",
+        "userId",
+        "username",
+        "password",
+        "online",
+        "lastSeen",
+        "createdAt",
+        "__v"
+      ],
+      "sample": {
+        "_id": "69025a8b23c538734ce4ee43",
+        "userId": "parkxvvyvhvq6ep2vk17a",
+        "username": "john_doe",
+        "password": "password123",
+        "online": false,
+        "lastSeen": "2025-10-29T18:18:51.655Z",
+        "createdAt": "2025-10-29T18:18:51.682Z",
+        "__v": 0
+      }
+    },
+    "rooms": {
+      "count": 6,
+      "fields": [
+        "_id",
+        "roomId",
+        "name",
+        "createdBy",
+        "members",
+        "messages",
+        "createdAt",
+        "__v"
+      ],
+      "sample": {
+        "_id": "69025a8b23c538734ce4ee4b",
+        "roomId": "6n5a8xwwppfvlbqjbsiwz",
+        "name": "General",
+        "createdBy": "parkxvvyvhvq6ep2vk17a",
+        "members": [
+          "parkxvvyvhvq6ep2vk17a",
+          "fz5exwhz0jwklmptsarjt",
+          "xk76r57fl8f50tmjp8fzk4",
+          "2eiq1gujhoqsdk3u5ex6o",
+          "bb8232vnzb8gr6dhzjuoin",
+          "bb8232vnzb8gr6dhzjuoin"
+        ],
+        "messages": [
+          {
+            "messageId": "rs5qdaa9vhou1sooip7ap",
+            "userId": "parkxvvyvhvq6ep2vk17a",
+            "username": "john_doe",
+            "message": "Welcome to the General room! 👋 Everyone feel free to chat here.",
+            "timestamp": "2025-10-29T17:18:51.876Z",
+            "readBy": [
+              "parkxvvyvhvq6ep2vk17a",
+              "fz5exwhz0jwklmptsarjt"
+            ],
+            "_id": "69025a8b23c538734ce4ee4c"
+          },
+          {
+            "messageId": "67owf8qpsrb30n9lh0h7ti",
+            "userId": "fz5exwhz0jwklmptsarjt",
+            "username": "jane_smith",
+            "message": "Thanks! Great to be here 🎉",
+            "timestamp": "2025-10-29T17:23:51.877Z",
+            "reactions": {
+              "🎉": [
+                "parkxvvyvhvq6ep2vk17a"
+              ]
+            },
+            "readBy": [
+              "fz5exwhz0jwklmptsarjt",
+              "parkxvvyvhvq6ep2vk17a"
+            ],
+            "_id": "69025a8b23c538734ce4ee4d"
+          },
+          {
+            "messageId": "42l8pcqk1hfv8soikfd5k",
+            "userId": "xk76r57fl8f50tmjp8fzk4",
+            "username": "alice_wonder",
+            "message": "Hey everyone! 👀",
+            "timestamp": "2025-10-29T17:28:51.877Z",
+            "reactions": {
+              "👋": [
+                "fz5exwhz0jwklmptsarjt"
+              ]
+            },
+            "readBy": [
+              "xk76r57fl8f50tmjp8fzk4",
+              "fz5exwhz0jwklmptsarjt"
+            ],
+            "_id": "69025a8b23c538734ce4ee4e"
+          }
+        ],
+        "createdAt": "2025-10-29T17:18:51.877Z",
+        "__v": 2
+      }
+    }
+  },
+  "summary": {
+    "totalCollections": 9,
+    "totalDocuments": 36
+  }
+}

@@ -119,7 +119,16 @@ app.use(express.urlencoded({ extended: true }));
 // Socket.io configuration
 const io = new Server(httpServer, {
   cors: corsOptions,
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  allowEIO3: true
+});
+
+// Socket.IO connection error handling
+io.engine.on('connection_error', (err) => {
+  console.error('[Socket.IO] Connection error:', err);
+  // Don't crash the server, just log it
 });
 
 app.set('io', io);
@@ -353,32 +362,66 @@ const seedGroupMessagesIfEmpty = async (group, seedMessages = []) => {
 };
 
 const ensureCoreGroupsForUser = async (user) => {
-  if (!user) return;
+  if (!user) {
+    console.warn('[ensureCoreGroupsForUser] No user provided');
+    return;
+  }
 
-  for (const config of CORE_GROUPS) {
-    let group = await TechGroup.findOne({ name: config.name });
-    if (!group) {
-      const groupId = generateId();
-      group = new TechGroup({
-        groupId,
-        name: config.name,
-        description: config.description,
-        createdBy: 'system',
-        members: [],
-        topics: Array.isArray(config.topics) ? config.topics : [],
-        type: 'community',
-        messages: [],
-      });
-      await group.save();
-      await seedGroupMessagesIfEmpty(group, config.seedMessages);
-    } else {
-      await seedGroupMessagesIfEmpty(group, config.seedMessages);
-    }
+  // Check MongoDB connection
+  if (mongoose.connection.readyState !== 1) {
+    console.warn('[ensureCoreGroupsForUser] Database not connected, skipping group creation');
+    return;
+  }
 
-    if (!group.members.includes(user.userId)) {
-      group.members.push(user.userId);
-      await group.save();
+  try {
+    for (const config of CORE_GROUPS) {
+      try {
+        let group = await TechGroup.findOne({ name: config.name });
+        if (!group) {
+          const groupId = generateId();
+          group = new TechGroup({
+            groupId,
+            name: config.name,
+            description: config.description,
+            createdBy: 'system',
+            members: [],
+            topics: Array.isArray(config.topics) ? config.topics : [],
+            type: 'community',
+            messages: [],
+          });
+          await group.save();
+          console.log(`[ensureCoreGroupsForUser] Created group: ${config.name}`);
+          
+          // Seed messages if provided - don't fail if this errors
+          try {
+            await seedGroupMessagesIfEmpty(group, config.seedMessages);
+          } catch (seedError) {
+            console.error(`[ensureCoreGroupsForUser] Error seeding messages for ${config.name}:`, seedError);
+            // Continue - seeding is not critical
+          }
+        } else {
+          // Seed messages if provided - don't fail if this errors
+          try {
+            await seedGroupMessagesIfEmpty(group, config.seedMessages);
+          } catch (seedError) {
+            console.error(`[ensureCoreGroupsForUser] Error seeding messages for ${config.name}:`, seedError);
+            // Continue - seeding is not critical
+          }
+        }
+
+        if (!group.members.includes(user.userId)) {
+          group.members.push(user.userId);
+          await group.save();
+          console.log(`[ensureCoreGroupsForUser] Added user ${user.userId} to group ${config.name}`);
+        }
+      } catch (groupError) {
+        console.error(`[ensureCoreGroupsForUser] Error processing group ${config.name}:`, groupError);
+        // Continue with next group - don't fail entire function
+      }
     }
+  } catch (error) {
+    console.error('[ensureCoreGroupsForUser] Fatal error:', error);
+    // Don't throw - let caller handle gracefully
   }
 };
 
@@ -1080,25 +1123,49 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try {
-    const usersList = await User.find({}, { password: 0 }).select('userId username online lastSeen');
-    res.json(usersList);
+    console.log('[API] GET /api/users - Request received');
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/users - Database not connected, returning empty array');
+      return res.json([]);
+    }
+    
+    const usersList = await User.find({}, { password: 0 }).select('userId username online lastSeen').lean();
+    const result = Array.isArray(usersList) ? usersList : [];
+    
+    console.log(`[API] GET /api/users - Returning ${result.length} users`);
+    res.json(result);
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    console.error('[API] GET /api/users - Error:', error);
+    // Return empty array instead of 500 error
+    res.json([]);
   }
 });
 
 app.get('/api/friends', authenticateJWT, async (req, res) => {
   try {
+    console.log('[API] GET /api/friends - Request received for user:', req.user?.userId);
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/friends - Database not connected, returning empty payload');
+      return res.json({ friends: [], friendRequests: [], sentFriendRequests: [] });
+    }
+    
     const currentUser = await User.findOne({ userId: req.user.userId });
     if (!currentUser) {
+      console.warn('[API] GET /api/friends - User not found:', req.user.userId);
       return res.status(404).json({ error: 'User not found' });
     }
+    
     const payload = await buildFriendPayload(currentUser);
+    console.log(`[API] GET /api/friends - Returning payload for user: ${currentUser.username}`);
     res.json(payload);
   } catch (error) {
-    console.error('Fetch friends error:', error);
-    res.status(500).json({ error: 'Unable to load friends right now.' });
+    console.error('[API] GET /api/friends - Error:', error);
+    // Return empty payload instead of 500 error
+    res.json({ friends: [], friendRequests: [], sentFriendRequests: [] });
   }
 });
 
@@ -1107,6 +1174,15 @@ app.post('/api/onboarding/complete', authenticateJWT, async (req, res) => {
     console.log('[Onboarding] POST /api/onboarding/complete - Request received');
     console.log('[Onboarding] Request body:', req.body);
     console.log('[Onboarding] User ID:', req.user?.userId);
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.error('[Onboarding] Database not connected');
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
     
     const currentUser = await User.findOne({ userId: req.user.userId });
     if (!currentUser) {
@@ -1118,7 +1194,7 @@ app.post('/api/onboarding/complete', authenticateJWT, async (req, res) => {
     
     // Update onboarding status and save skills/skillLevel if provided
     if (req.body.skills) {
-      currentUser.skills = req.body.skills;
+      currentUser.skills = Array.isArray(req.body.skills) ? req.body.skills : [];
     }
     if (req.body.skillLevel) {
       currentUser.skillLevel = req.body.skillLevel;
@@ -1130,7 +1206,16 @@ app.post('/api/onboarding/complete', authenticateJWT, async (req, res) => {
     if (!currentUser.onboardingCompleted) {
       currentUser.onboardingCompleted = true;
       await currentUser.save();
-      await ensureCoreGroupsForUser(currentUser);
+      
+      // Ensure core groups - wrap in try/catch to prevent onboarding failure
+      try {
+        await ensureCoreGroupsForUser(currentUser);
+        console.log('[Onboarding] Core groups ensured for user:', currentUser.username);
+      } catch (groupError) {
+        console.error('[Onboarding] Error ensuring core groups (non-fatal):', groupError);
+        // Don't fail onboarding if groups fail to create
+      }
+      
       console.log('[Onboarding] Onboarding marked as complete for user:', currentUser.username);
     } else {
       // Still save any updates even if already completed
@@ -1144,12 +1229,13 @@ app.post('/api/onboarding/complete', authenticateJWT, async (req, res) => {
         userId: currentUser.userId,
         username: currentUser.username,
         onboardingCompleted: currentUser.onboardingCompleted,
-        skills: currentUser.skills,
+        skills: currentUser.skills || [],
         skillLevel: currentUser.skillLevel
       }
     });
   } catch (error) {
     console.error('[Onboarding] Onboarding completion error:', error);
+    console.error('[Onboarding] Error stack:', error.stack);
     res.status(500).json({ error: 'Unable to update onboarding status right now.' });
   }
 });
@@ -1360,13 +1446,25 @@ app.get('/api/friends/:userId', authenticateJWT, async (req, res) => {
 
 app.get('/api/classroom-requests', authenticateJWT, async (req, res) => {
   try {
+    console.log('[API] GET /api/classroom-requests - Request received for user:', req.user?.userId);
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/classroom-requests - Database not connected, returning empty array');
+      return res.json([]);
+    }
+    
     const requests = await ClassroomRequest.find({ createdBy: req.user.userId }).sort({
       createdAt: -1,
-    });
-    res.json(requests.map(serializeClassroomRequest));
+    }).lean();
+    
+    const result = Array.isArray(requests) ? requests.map(serializeClassroomRequest) : [];
+    console.log(`[API] GET /api/classroom-requests - Returning ${result.length} requests`);
+    res.json(result);
   } catch (error) {
-    console.error('Fetch classroom requests error:', error);
-    res.status(500).json({ error: 'Unable to load classroom requests right now.' });
+    console.error('[API] GET /api/classroom-requests - Error:', error);
+    // Return empty array instead of 500 error
+    res.json([]);
   }
 });
 
@@ -1615,16 +1713,28 @@ const serializeJoinRequest = (request) => ({
 
 app.get('/api/tech-groups', async (req, res) => {
   try {
+    console.log('[API] GET /api/tech-groups - Request received');
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/tech-groups - Database not connected, returning empty array');
+      return res.json([]);
+    }
+    
     const { search } = req.query;
-    const query = search
+    const query = search && search.trim()
       ? { name: { $regex: new RegExp(search.trim(), 'i') } }
       : {};
 
-    const groups = await TechGroup.find(query).sort({ createdAt: -1 });
-    res.json(groups.map(serializeGroup));
+    const groups = await TechGroup.find(query).sort({ createdAt: -1 }).lean();
+    const result = Array.isArray(groups) ? groups.map(serializeGroup) : [];
+    
+    console.log(`[API] GET /api/tech-groups - Returning ${result.length} groups`);
+    res.json(result);
   } catch (error) {
-    console.error('Get tech groups error:', error);
-    res.status(500).json({ error: 'Failed to fetch tech groups' });
+    console.error('[API] GET /api/tech-groups - Error:', error);
+    // Return empty array instead of 500 error
+    res.json([]);
   }
 });
 
@@ -1898,17 +2008,31 @@ app.post(
 
 app.get('/api/tech-groups/:groupId/messages/archived', async (req, res) => {
   try {
+    console.log('[API] GET /api/tech-groups/:groupId/messages/archived - Request received', req.params.groupId);
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/tech-groups/:groupId/messages/archived - Database not connected, returning empty array');
+      return res.json([]);
+    }
+    
     const { groupId } = req.params;
     const group = await TechGroup.findOne({ groupId });
     if (!group) {
+      console.warn('[API] GET /api/tech-groups/:groupId/messages/archived - Group not found:', groupId);
       return res.status(404).json({ error: 'Tech group not found' });
     }
 
     await autoArchiveTechGroupMessages(group);
-    return res.json(filterArchivedMessages(group.messages));
+    const archived = filterArchivedMessages(group.messages || []);
+    const result = Array.isArray(archived) ? archived : [];
+    
+    console.log(`[API] GET /api/tech-groups/:groupId/messages/archived - Returning ${result.length} archived messages`);
+    return res.json(result);
   } catch (error) {
-    console.error('Get archived tech group messages error:', error);
-    return res.status(500).json({ error: 'Failed to fetch archived messages' });
+    console.error('[API] GET /api/tech-groups/:groupId/messages/archived - Error:', error);
+    // Return empty array instead of 500 error
+    return res.json([]);
   }
 });
 
@@ -2455,9 +2579,15 @@ app.post('/api/translate', async (req, res) => {
   }
 });
 
-// Socket.io connection handling
+// Socket.io connection handling with comprehensive error handling
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('[Socket.IO] User connected:', socket.id);
+  
+  // Wrap all socket handlers to prevent crashes
+  socket.on('error', (error) => {
+    console.error('[Socket.IO] Socket error:', error);
+    // Don't disconnect or throw, just log
+  });
   
   socket.on('user:join', async ({ userId, username }) => {
     try {
@@ -2482,7 +2612,9 @@ io.on('connection', (socket) => {
         io.emit('user:status', { userId, online: true });
       }
     } catch (error) {
-      console.error('User join error:', error);
+      console.error('[Socket.IO] User join error:', error);
+      // Gracefully handle error - don't disconnect socket
+      socket.emit('error', { message: 'Failed to join user session' });
     }
   });
   
@@ -2502,7 +2634,8 @@ io.on('connection', (socket) => {
         socket.emit('group:messages', filterActiveMessages(group.messages));
       }
     } catch (error) {
-      console.error('Tech group join error:', error);
+      console.error('[Socket.IO] Tech group join error:', error);
+      // Don't crash, just log
     }
   });
 
@@ -2524,7 +2657,8 @@ io.on('connection', (socket) => {
       socket.join(`group:${groupId}`);
       io.emit('group:created', serializeGroup(group));
     } catch (error) {
-      console.error('Tech group create error:', error);
+      console.error('[Socket.IO] Tech group create error:', error);
+      socket.emit('error', { message: 'Failed to create group' });
     }
   });
   
@@ -2587,7 +2721,8 @@ io.on('connection', (socket) => {
         });
       }
     } catch (error) {
-      console.error('Tech group message error:', error);
+      console.error('[Socket.IO] Tech group message error:', error);
+      // Don't crash, just log
     }
   });
   
@@ -2609,7 +2744,8 @@ io.on('connection', (socket) => {
 
       socket.emit('private:messages', filterActiveMessages(chat.messages));
     } catch (error) {
-      console.error('Private chat start error:', error);
+      console.error('[Socket.IO] Private chat start error:', error);
+      // Don't crash, just log
     }
   });
   
@@ -2687,7 +2823,8 @@ io.on('connection', (socket) => {
       }
       socket.emit('private:message', messageResponse);
     } catch (error) {
-      console.error('Private message error:', error);
+      console.error('[Socket.IO] Private message error:', error);
+      // Don't crash, just log
     }
   });
   
@@ -2744,7 +2881,8 @@ io.on('connection', (socket) => {
         }
       }
     } catch (error) {
-      console.error('Message read error:', error);
+      console.error('[Socket.IO] Message read error:', error);
+      // Don't crash, just log
     }
   });
   
@@ -2786,30 +2924,35 @@ io.on('connection', (socket) => {
         }
       }
     } catch (error) {
-      console.error('Message react error:', error);
+      console.error('[Socket.IO] Message react error:', error);
+      // Don't crash, just log
     }
   });
   
   socket.on('disconnect', async () => {
-    console.log('User disconnected:', socket.id);
+    console.log('[Socket.IO] User disconnected:', socket.id);
     
     // Find user by socket ID and mark offline
-    for (const [userId, socketId] of userSockets.entries()) {
-      if (socketId === socket.id) {
-        userSockets.delete(userId);
-        try {
-          const user = await User.findOne({ userId });
-          if (user) {
-            user.online = false;
-            user.lastSeen = new Date();
-            await user.save();
-            io.emit('user:status', { userId, online: false });
+    try {
+      for (const [userId, socketId] of userSockets.entries()) {
+        if (socketId === socket.id) {
+          userSockets.delete(userId);
+          try {
+            const user = await User.findOne({ userId });
+            if (user) {
+              user.online = false;
+              user.lastSeen = new Date();
+              await user.save();
+              io.emit('user:status', { userId, online: false });
+            }
+          } catch (error) {
+            console.error('[Socket.IO] Disconnect error (user update):', error);
           }
-        } catch (error) {
-          console.error('Disconnect error:', error);
+          break;
         }
-        break;
       }
+    } catch (error) {
+      console.error('[Socket.IO] Disconnect error (general):', error);
     }
   });
 });
@@ -3407,7 +3550,33 @@ app.delete('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, 
   }
 });
 
+// Knowledge API endpoint (safe stub - returns empty array if no data)
+app.get('/api/knowledge', async (req, res) => {
+  try {
+    console.log('[API] GET /api/knowledge - Request received', req.query);
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/knowledge - Database not connected, returning empty array');
+      return res.json([]);
+    }
+    
+    // For now, return empty array - can be extended when Knowledge model exists
+    // This prevents 500 errors when frontend requests knowledge data
+    console.log('[API] GET /api/knowledge - Returning empty array (stub endpoint)');
+    res.json([]);
+  } catch (error) {
+    console.error('[API] GET /api/knowledge - Error:', error);
+    // Return empty array instead of 500 error
+    res.json([]);
+  }
+});
+
 // Health check and root route
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.get('/', (req, res) => {
   res.json({ 
     message: 'CodeCircle API Server', 
@@ -3418,13 +3587,37 @@ app.get('/', (req, res) => {
       users: '/api/users',
       onboarding: '/api/onboarding',
       friends: '/api/friends',
-      techGroups: '/api/tech-groups'
+      techGroups: '/api/tech-groups',
+      knowledge: '/api/knowledge'
     }
   });
 });
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// 404 handler - MUST be after all routes but before error handler
+app.use((req, res) => {
+  console.warn('[404] Route not found:', req.method, req.path);
+  res.status(404).json({ 
+    error: 'Route not found',
+    path: req.path,
+    method: req.method
+  });
+});
+
+// Global error handler middleware - MUST be after all routes and 404 handler
+app.use((err, req, res, next) => {
+  console.error('[Global Error Handler] Unhandled error:', err);
+  console.error('[Global Error Handler] Stack:', err.stack);
+  console.error('[Global Error Handler] Request:', req.method, req.path);
+  
+  // Don't expose internal errors to client
+  const message = process.env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : err.message || 'Internal server error';
+  
+  res.status(err.status || 500).json({
+    error: message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
 });
 
 // Start HTTP server

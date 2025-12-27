@@ -1,8 +1,8 @@
 import {type FormEvent, useState, useEffect, useMemo} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
-import {useNavigate} from 'react-router-dom';
 import {api, endpoints} from '@/services/api';
 import {useAuthStore} from '@/store/authStore';
+import {useNotificationStore} from '@/store/notificationStore';
 
 interface Props {
   defaultView?: 'login' | 'register';
@@ -17,7 +17,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
   const [loading, setLoading] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const setAuth = useAuthStore((state) => state.setAuth);
-  const navigate = useNavigate();
+  const pushNotification = useNotificationStore((state) => state.push);
 
   const carouselImages = useMemo(
     () => [
@@ -30,6 +30,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
   );
 
   useEffect(() => {
+    if (carouselImages.length === 0) return;
     const interval = setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % carouselImages.length);
     }, 6000);
@@ -47,6 +48,15 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
           throw new Error('No response data received from server');
         }
         setAuth(data);
+        console.log('[Auth] Auth state set, waiting for state to persist...');
+        
+        // Wait for Zustand persist to save and state to update
+        // Also wait for RequireAuth to recognize the user
+        setTimeout(() => {
+          console.log('[Auth] Navigating to dashboard...');
+          // Use window.location for a hard navigation to ensure clean state
+          window.location.href = '/dashboard';
+        }, 500);
       } else {
         const {data} = await api.post(endpoints.auth.signup, {username, email, password});
         console.log('[Auth] Signup response:', data);
@@ -54,16 +64,31 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
           throw new Error('No response data received from server');
         }
         setAuth(data);
+        console.log('[Auth] Auth state set, waiting for state to persist...');
+        
+        // Wait for Zustand persist to save and state to update
+        // Also wait for RequireAuth to recognize the user
+        setTimeout(() => {
+          console.log('[Auth] Navigating to dashboard...');
+          // Use window.location for a hard navigation to ensure clean state
+          window.location.href = '/dashboard';
+        }, 500);
       }
-      navigate('/dashboard');
     } catch (error: unknown) {
       const err = error as {config?: {url?: string; baseURL?: string}; response?: {data?: {error?: string}}; message?: string};
       console.error('[Auth] Error:', error);
       console.error('[Auth] Request URL:', err.config?.url);
       console.error('[Auth] Base URL:', err.config?.baseURL);
       console.error('[Auth] Full error:', err.response?.data || err.message);
-      // You can add a toast notification here if needed
-      alert(err.response?.data?.error || err.message || 'Authentication failed. Please check your connection and try again.');
+      
+      // Show error notification
+      const errorMessage = err.response?.data?.error || err.message || 'Authentication failed. Please check your connection and try again.';
+      pushNotification({
+        id: `auth-error-${Date.now()}`,
+        title: view === 'login' ? 'Login Failed' : 'Signup Failed',
+        message: errorMessage,
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -74,20 +99,22 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
       {/* Background Image Carousel */}
       <div className="absolute inset-0">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={carouselImages[activeSlide]}
-            initial={{opacity: 0, scale: 1.05}}
-            animate={{opacity: 1, scale: 1}}
-            exit={{opacity: 0, scale: 0.98}}
-            transition={{duration: 1.2, ease: 'easeInOut'}}
-            className="absolute inset-0"
-          >
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{backgroundImage: carouselImages[activeSlide] ? `url(${carouselImages[activeSlide]})` : undefined}}
-            />
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-slate-950/90 to-slate-950/95 mix-blend-multiply" />
-          </motion.div>
+          {carouselImages[activeSlide] && (
+            <motion.div
+              key={carouselImages[activeSlide]}
+              initial={{opacity: 0, scale: 1.05}}
+              animate={{opacity: 1, scale: 1}}
+              exit={{opacity: 0, scale: 0.98}}
+              transition={{duration: 1.2, ease: 'easeInOut'}}
+              className="absolute inset-0"
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{backgroundImage: `url(${carouselImages[activeSlide]})`}}
+              />
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-slate-950/90 to-slate-950/95 mix-blend-multiply" />
+            </motion.div>
+          )}
         </AnimatePresence>
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_45%),radial-gradient(circle_at_bottom,_rgba(14,165,233,0.18),_transparent_45%)]" />
       </div>
@@ -119,14 +146,20 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
             {view === 'login' ? (
               <span>
                 Need an account?{' '}
-                <button onClick={() => setView('register')} className="text-primaryTo">
+                <button 
+                  onClick={() => setView('register')} 
+                  className="text-primaryTo transition-all hover:text-primaryFrom hover:underline active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/50 rounded px-1"
+                >
                   Create one
                 </button>
               </span>
             ) : (
               <span>
                 Already joined?{' '}
-                <button onClick={() => setView('login')} className="text-primaryTo">
+                <button 
+                  onClick={() => setView('login')} 
+                  className="text-primaryTo transition-all hover:text-primaryFrom hover:underline active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/50 rounded px-1"
+                >
                   Sign in
                 </button>
               </span>
@@ -151,7 +184,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     required
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 focus:border-primaryTo focus:outline-none"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 transition-all focus:border-primaryTo focus:outline-none focus:ring-2 focus:ring-primaryTo/30 hover:border-white/20"
                   />
                 </div>
               )}
@@ -163,7 +196,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 focus:border-primaryTo focus:outline-none"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 transition-all focus:border-primaryTo focus:outline-none focus:ring-2 focus:ring-primaryTo/30 hover:border-white/20"
                   />
                 </div>
               )}
@@ -174,7 +207,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
                     required
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 focus:border-primaryTo focus:outline-none"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 transition-all focus:border-primaryTo focus:outline-none focus:ring-2 focus:ring-primaryTo/30 hover:border-white/20"
                   />
                 </div>
               )}
@@ -191,7 +224,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-gradient-to-r from-primaryFrom to-primaryTo py-3 text-sm font-semibold text-white shadow-lift transition hover:scale-[1.01] disabled:opacity-70"
+                className="w-full rounded-2xl bg-gradient-to-r from-primaryFrom to-primaryTo py-3 text-sm font-semibold text-white shadow-lift transition-all hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primaryTo/50"
               >
                 {loading ? 'One moment…' : view === 'login' ? 'Sign in' : 'Create account'}
               </button>
