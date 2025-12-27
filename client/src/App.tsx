@@ -21,7 +21,7 @@ import {FriendNotificationsPage} from '@/pages/friendzone/FriendNotificationsPag
 import {TechCategoryPage} from '@/pages/TechCategory';
 import {AppLayout} from '@/layouts/AppLayout';
 import {AdminLayout} from '@/layouts/AdminLayout';
-import {RequireRole} from '@/components/admin/RequireRole';
+import {RequireRole} from '@/components/Admin/RequireRole';
 import {AnalyticsPage} from '@/pages/admin/AnalyticsPage';
 import {UsersPage} from '@/pages/admin/UsersPage';
 import {ClassesPage} from '@/pages/admin/ClassesPage';
