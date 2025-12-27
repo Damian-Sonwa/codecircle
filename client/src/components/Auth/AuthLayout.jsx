@@ -39,7 +39,7 @@ const AuthLayout = ({ children, isRegister = false }) => {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Floating orbs */}
         <motion.div
-          className="absolute top-20 left-10 w-64 h-64 bg-primary/20 rounded-full blur-3xl"
+          className="absolute top-20 left-10 w-64 h-64 bg-sky-500/20 rounded-full blur-3xl"
           animate={{
             y: [0, -30, 0],
             scale: [1, 1.1, 1],

@@ -83,7 +83,7 @@ export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
         {!isOwn && <p className="text-[10px] sm:text-xs text-slate-400 truncate">{displayName}</p>}
         <div
           className={cn(
-            'rounded-xl sm:rounded-2xl md:rounded-3xl border border-white/5 px-2.5 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-3 text-xs sm:text-sm shadow-lift transition break-words',
+            'rounded-xl sm:rounded-2xl md:rounded-3xl border border-white/5 px-2.5 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-3 text-[16px] sm:text-sm leading-relaxed shadow-lift transition break-words',
             isOwn
               ? 'bg-gradient-to-br from-sky-500/80 to-sky-500/70 text-white'
               : 'bg-slate-900/70 text-slate-100'

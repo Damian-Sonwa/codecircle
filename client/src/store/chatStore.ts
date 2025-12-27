@@ -25,7 +25,15 @@ export const useChatStore = create<ChatState>((set) => ({
   typing: {},
   encryptionPreview: false,
   sidebarOpen: true,
-  setActiveConversation: (id) => set({activeConversationId: id, sidebarOpen: false}),
+  setActiveConversation: (id) => {
+    // Only update if the ID actually changed to prevent unnecessary re-renders
+    set((state) => {
+      if (state.activeConversationId === id) {
+        return state; // No change, return current state
+      }
+      return {activeConversationId: id, sidebarOpen: false};
+    });
+  },
   setComposerText: (text) => set({composerText: text}),
   setTyping: (conversationId, userId, isTyping) =>
     set((state) => ({

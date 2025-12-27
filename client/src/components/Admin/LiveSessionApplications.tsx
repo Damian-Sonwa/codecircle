@@ -72,7 +72,7 @@ export const LiveSessionApplications = () => {
     return (
       <div className="glass-card rounded-2xl sm:rounded-3xl p-6 sm:p-8">
         <div className="flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-primaryTo" />
+          <Loader2 className="h-5 w-5 animate-spin text-sky-500" />
           <p className="text-sm text-slate-400">Loading applications...</p>
         </div>
       </div>
@@ -91,8 +91,8 @@ export const LiveSessionApplications = () => {
               className={cn(
                 'px-4 py-2 rounded-full text-xs font-medium transition',
                 statusFilter === status
-                  ? 'bg-gradient-to-r from-primaryFrom to-primaryTo text-white'
-                  : 'bg-slate-900/60 text-slate-300 border border-white/10 hover:border-primaryTo/40'
+                  ? 'bg-gradient-to-r from-sky-500 to-sky-500 text-white'
+                  : 'bg-slate-900/60 text-slate-300 border border-white/10 hover:border-sky-600/40'
               )}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)} ({applications.filter((app) => status === 'all' || app.status === status).length})
@@ -118,7 +118,7 @@ export const LiveSessionApplications = () => {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold">
                       {application.username.charAt(0).toUpperCase()}
                     </div>
                     <div>

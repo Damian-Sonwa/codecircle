@@ -1,17 +1,23 @@
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {useNavigate} from 'react-router-dom';
 import {UserPlus, X, Clock, Loader2, Mail, Search} from 'lucide-react';
 import {api, endpoints} from '@/services/api';
 import {type UserSummary} from '@/types';
 import {useNotificationStore} from '@/store/notificationStore';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 
 export const FriendRequestsPage = () => {
+  // ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY CONDITIONAL RETURNS
+  const {appReady} = useAppReady();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const pushNotification = useNotificationStore((state) => state.push);
   const [searchInput, setSearchInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  // Fetch friends data (includes requests)
+  // Fetch friends data (includes requests) - only when app is ready
   const {data, isLoading} = useQuery({
     queryKey: ['friends'],
     queryFn: async () => {
@@ -28,9 +34,12 @@ export const FriendRequestsPage = () => {
         incomingRequests: data.incomingRequests || data.friendRequests || [],
         outgoingRequests: data.outgoingRequests || data.sentFriendRequests || [],
       };
-    }
+    },
+    enabled: appReady, // Only fetch when app is ready
+    refetchOnMount: true,
   });
 
+  // ALL MUTATION HOOKS MUST BE CALLED BEFORE CONDITIONAL RETURNS
   const sendRequestMutation = useMutation({
     mutationFn: async (identifier: string) => {
       return api.post(endpoints.friends.request, {
@@ -57,28 +66,29 @@ export const FriendRequestsPage = () => {
     },
   });
 
-  const handleSendRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchInput.trim()) return;
-    setIsSearching(true);
-    try {
-      await sendRequestMutation.mutateAsync(searchInput.trim());
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const respondMutation = useMutation({
     mutationFn: ({requesterId, accept}: {requesterId: string; accept: boolean}) =>
       api.post(endpoints.friends.respond(requesterId), {accept}),
     onSuccess: (data, variables) => {
+      // Invalidate queries first
       queryClient.invalidateQueries({queryKey: ['friends']});
+      queryClient.invalidateQueries({queryKey: ['conversations']});
+      
       pushNotification({
         id: `request-${variables.requesterId}-${Date.now()}`,
         title: variables.accept ? 'Friend request accepted' : 'Friend request declined',
         message: data?.data?.message || (variables.accept ? 'You are now friends!' : 'Request declined'),
         type: variables.accept ? 'success' : 'info'
       });
+
+      // If accepted, wait for conversations to update, then navigate to chat
+      if (variables.accept) {
+        setTimeout(() => {
+          // Navigate to chats page with friendId parameter
+          // The FriendChatsPageEnhanced will handle opening the conversation
+          navigate(`/friends/chats?friendId=${variables.requesterId}`, {replace: false});
+        }, 800); // Increased delay to ensure conversations are updated
+      }
     }
   });
 
@@ -95,6 +105,28 @@ export const FriendRequestsPage = () => {
       });
     }
   });
+
+  useEffect(() => {
+    if (appReady && !isLoading && data) {
+      console.log('[FriendRequests] App ready, friends data loaded');
+    }
+  }, [appReady, isLoading, data]);
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (!appReady) {
+    return <AppLoader message="Loading friend requests..." />;
+  }
+
+  const handleSendRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchInput.trim()) return;
+    setIsSearching(true);
+    try {
+      await sendRequestMutation.mutateAsync(searchInput.trim());
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const handleAccept = (requesterId: string) => {
     respondMutation.mutate({requesterId, accept: true});

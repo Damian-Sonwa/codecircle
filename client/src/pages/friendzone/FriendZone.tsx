@@ -36,7 +36,7 @@ export const FriendZone = () => {
                 className={cn(
                   'flex items-center gap-2 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all',
                   isActive
-                    ? 'bg-gradient-to-r from-primaryFrom to-primaryTo text-white shadow-lift'
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-500 text-white shadow-lift'
                     : 'bg-slate-900/60 text-slate-300 hover:bg-slate-900/80 hover:text-slate-100 border border-white/10'
                 )}
               >

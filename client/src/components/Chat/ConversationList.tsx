@@ -28,7 +28,7 @@ export const ConversationList = ({filter = 'all'}: Props) => {
     <aside className="glass-card flex h-full w-full flex-col p-3 sm:p-4 lg:w-80">
       <div className="mb-3 sm:mb-4 flex items-center justify-between">
         <h2 className="text-base sm:text-lg font-semibold text-slate-100">Chats</h2>
-        <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-primaryTo" />
+        <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
       </div>
       <div className="mb-3 sm:mb-4 flex items-center gap-2 rounded-xl sm:rounded-2xl border border-white/10 bg-slate-900/60 px-2 sm:px-3 py-2">
         <Search className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 flex-shrink-0" />
@@ -59,16 +59,16 @@ export const ConversationList = ({filter = 'all'}: Props) => {
                 }
               }}
               className={cn(
-                'flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-transparent bg-slate-900/50 px-2 sm:px-3 py-2 sm:py-3 text-left transition hover:border-primaryFrom/40',
-                isActive ? 'border-primaryTo/50 bg-slate-900/80' : ''
+                'flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-transparent bg-slate-900/50 px-2 sm:px-3 py-2 sm:py-3 text-left transition hover:border-sky-500/40',
+                isActive ? 'border-sky-500/50 bg-slate-900/80' : ''
               )}
             >
               <div className="flex flex-col items-start gap-0.5 sm:gap-1 text-left min-w-0 flex-1">
                 <p className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-slate-100 truncate w-full">
                   <span className="truncate">{conversation.title ?? (conversation.type === 'dm' ? 'Private conversation' : 'Group chat')}</span>
                   <span className="flex items-center gap-1 flex-shrink-0">
-                    {conversation.type === 'dm' ? <Lock className="h-3 w-3 text-slate-400" /> : <Users className="h-3 w-3 text-primaryTo" />}
-                    {isPinned && <PinIcon className="h-3 w-3 text-primaryTo" />}
+                    {conversation.type === 'dm' ? <Lock className="h-3 w-3 text-slate-400" /> : <Users className="h-3 w-3 text-sky-500" />}
+                    {isPinned && <PinIcon className="h-3 w-3 text-violet-500" />}
                     {isArchived && <Archive className="h-3 w-3 text-slate-500" />}
                     {conversation.locked && <Lock className="h-3 w-3 text-rose-500" />}
                   </span>

@@ -18,9 +18,21 @@ export const AppLayout = ({children}: Props) => {
   const user = useAuthStore((state) => state.user);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const location = useLocation();
 
+  // Wait for user state to stabilize before checking onboarding
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    // Don't check onboarding while checking state
+    if (isChecking) return;
+
     // Check if onboarding is needed
     const needsOnboarding = user && (!user.hasOnboarded || !user.profileCompleted || !user.onboardingCompleted);
     
@@ -32,10 +44,13 @@ export const AppLayout = ({children}: Props) => {
         onboardingCompleted: user?.onboardingCompleted
       });
     } else if (user && user.hasOnboarded && user.profileCompleted && user.onboardingCompleted) {
-      setShowOnboarding(false);
-      console.log('[AppLayout] Onboarding complete, hiding modal');
+      // Only hide if it was previously shown to avoid flicker
+      if (showOnboarding) {
+        setShowOnboarding(false);
+        console.log('[AppLayout] Onboarding complete, hiding modal');
+      }
     }
-  }, [user]);
+  }, [user, isChecking, showOnboarding]);
 
   useEffect(() => {
     window.scrollTo({top: 0, behavior: 'smooth'});

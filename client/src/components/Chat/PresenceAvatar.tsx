@@ -13,7 +13,7 @@ const sizeMap = {
 };
 
 const skillPalette: Record<string, string> = {
-  Fullstack: 'from-primaryFrom to-primaryTo',
+  Fullstack: 'from-sky-500 to-sky-500',
   Backend: 'from-emerald-500 to-teal-400',
   Frontend: 'from-rose-500 to-orange-400',
   Cybersecurity: 'from-slate-500 to-cyan-500',
@@ -26,7 +26,7 @@ const skillPalette: Record<string, string> = {
 export const PresenceAvatar = ({user, size = 'md'}: Props) => {
   const statusColor = user.status === 'online' ? 'bg-emerald-500' : user.status === 'away' ? 'bg-amber-400' : 'bg-slate-500';
   const primarySkill = user.skills?.[0] ?? 'Fullstack';
-  const gradient = skillPalette[primarySkill] ?? 'from-primaryFrom to-primaryTo';
+  const gradient = skillPalette[primarySkill] ?? 'from-sky-500 to-sky-500';
   return (
     <div className={cn('relative rounded-full bg-gradient-to-br p-[2px] shadow-[0_0_12px_rgba(99,102,241,0.45)]', `bg-gradient-to-br ${gradient}`, sizeMap[size])}>
       <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-900">

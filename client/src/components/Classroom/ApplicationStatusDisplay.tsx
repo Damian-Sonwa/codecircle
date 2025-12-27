@@ -19,7 +19,7 @@ export const ApplicationStatusDisplay = () => {
     return (
       <div className="glass-card rounded-2xl sm:rounded-3xl p-6 sm:p-8">
         <div className="flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-primaryTo" />
+          <Loader2 className="h-5 w-5 animate-spin text-sky-500" />
           <p className="text-sm text-slate-400">Loading application status...</p>
         </div>
       </div>

@@ -7,7 +7,7 @@ export const AmbientBackground = () => {
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       <motion.div
-        className="absolute -left-1/3 top-1/3 h-[60vw] w-[60vw] rounded-full bg-gradient-to-r from-primaryFrom/60 to-primaryTo/30 blur-3xl"
+        className="absolute -left-1/3 top-1/3 h-[60vw] w-[60vw] rounded-full bg-gradient-to-r from-sky-500/60 to-sky-500/30 blur-3xl"
         animate={{scale: [1, 1.05, 1], x: [0, 40, -20], y: [0, -30, 20]}}
         transition={{repeat: Infinity, duration: 30, ease: 'easeInOut'}}
       />

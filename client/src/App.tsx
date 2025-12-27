@@ -2,6 +2,7 @@ import {Suspense, type ReactNode, useState, useEffect} from 'react';
 import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
 import {LoginPage} from '@/pages/Login';
 import {RegisterPage} from '@/pages/Register';
+import {AuthPage} from '@/pages/AuthPage';
 import {ChatPage} from '@/pages/Chat';
 import {CommunityHangoutPage} from '@/pages/CommunityHangout';
 import {MyTechCirclePage} from '@/pages/MyTechCircle';
@@ -28,31 +29,23 @@ import {ClassesPage} from '@/pages/admin/ClassesPage';
 import {ApprovalsPage} from '@/pages/admin/ApprovalsPage';
 import {SettingsPage as AdminSettingsPage} from '@/pages/admin/SettingsPage';
 import {useAuthStore} from '@/store/authStore';
+import {PostAuthLoading} from '@/components/Auth/PostAuthLoading';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 
 const LoadingScreen = () => (
-  <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-    <p className="animate-pulse text-sm">Warming up the glass matrix…</p>
-  </div>
+  <PostAuthLoading message="Warming up the glass matrix…" />
 );
 
 const RequireAuth = ({children}: {children: ReactNode}) => {
+  const {appReady, isChecking} = useAppReady();
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const [isChecking, setIsChecking] = useState(true);
   
-  // Wait for Zustand persist to hydrate
-  useEffect(() => {
-    // Longer delay to ensure Zustand persist has loaded from localStorage
-    const timer = setTimeout(() => {
-      setIsChecking(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
-  
-  console.log('[RequireAuth] User state:', user ? 'authenticated' : 'not authenticated', 'isChecking:', isChecking, 'hasToken:', !!accessToken);
+  console.log('[RequireAuth] User state:', user ? 'authenticated' : 'not authenticated', 'isChecking:', isChecking, 'appReady:', appReady, 'hasToken:', !!accessToken);
   
   if (isChecking) {
-    return <LoadingScreen />;
+    return <AppLoader message="Authenticating..." />;
   }
   
   // Check both user and token to ensure auth is complete
@@ -60,6 +53,12 @@ const RequireAuth = ({children}: {children: ReactNode}) => {
     console.log('[RequireAuth] No user or token, redirecting to login...');
     return <Navigate to="/login" replace />;
   }
+  
+  // Wait for app to be ready before rendering children
+  if (!appReady) {
+    return <AppLoader message="Loading your workspace..." />;
+  }
+  
   return <>{children}</>;
 };
 
@@ -265,29 +264,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
-
-const AuthPage = ({component}: {component: ReactNode}) => {
-  const user = useAuthStore((state) => state.user);
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const [isChecking, setIsChecking] = useState(true);
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsChecking(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
-  
-  if (isChecking) {
-    return <LoadingScreen />;
-  }
-  
-  // Only redirect if both user and token exist
-  if (user && accessToken) {
-    // Admins should go to admin panel, regular users to dashboard
-    const redirectPath = (user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/dashboard';
-    console.log('[AuthPage] User already authenticated, redirecting to', redirectPath);
-    return <Navigate to={redirectPath} replace />;
-  }
-  return component;
-};

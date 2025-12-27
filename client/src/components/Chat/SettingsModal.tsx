@@ -31,7 +31,7 @@ export const SettingsModal = () => {
                     onClick={() => setTheme(option.value)}
                     className={cn(
                       'rounded-2xl border border-white/5 px-4 py-2 text-sm transition',
-                      theme === option.value ? 'bg-primaryFrom/60 text-white' : 'bg-slate-900/60 text-slate-200'
+                      theme === option.value ? 'bg-sky-500/60 text-white' : 'bg-slate-900/60 text-slate-200'
                     )}
                   >
                     {option.label}
@@ -48,7 +48,7 @@ export const SettingsModal = () => {
                 onClick={toggleAmbient}
                 className={cn(
                   'rounded-full px-4 py-2 text-sm transition',
-                  ambientBackground ? 'bg-primaryTo/70 text-white' : 'bg-slate-800/70 text-slate-300'
+                  ambientBackground ? 'bg-sky-500/70 text-white' : 'bg-slate-800/70 text-slate-300'
                 )}
               >
                 {ambientBackground ? 'On' : 'Off'}
@@ -63,7 +63,7 @@ export const SettingsModal = () => {
                 onClick={toggleSound}
                 className={cn(
                   'rounded-full px-4 py-2 text-sm transition',
-                  soundEnabled ? 'bg-primaryFrom/70 text-white' : 'bg-slate-800/70 text-slate-300'
+                  soundEnabled ? 'bg-sky-500/70 text-white' : 'bg-slate-800/70 text-slate-300'
                 )}
               >
                 {soundEnabled ? 'On' : 'Muted'}

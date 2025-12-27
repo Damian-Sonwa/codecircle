@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useState, useRef} from 'react';
 import {motion} from 'framer-motion';
 import {useMessages} from '@/hooks/useMessages';
 import {useConversations} from '@/hooks/useConversations';
@@ -10,7 +10,7 @@ import {AddCircleMembers} from './AddCircleMembers';
 import {getSocket} from '@/services/socket';
 import {api, endpoints} from '@/services/api';
 import {useQueryClient, useQuery} from '@tanstack/react-query';
-import {UserPlus} from 'lucide-react';
+import {UserPlus, MessageSquare} from 'lucide-react';
 
 const ChatWindow = () => {
   const activeConversationId = useChatStore((state) => state.activeConversationId);
@@ -21,6 +21,7 @@ const ChatWindow = () => {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [showAddMembers, setShowAddMembers] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const messages = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data]);
   const conversation = useMemo(
@@ -51,35 +52,40 @@ const ChatWindow = () => {
     return circleDetails?.members?.map((m: any) => m.userId) || [];
   }, [circleDetails]);
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollTo({
+        top: messagesEndRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [messages]);
+
   useEffect(() => {
     if (!activeConversationId) return;
     const socket = getSocket();
     if (!socket) return;
     
     // Join appropriate room based on conversation type
-    // If conversation is loaded, use its type; otherwise default to group join for community hangout
     if (conversation?.conversationType === 'private-circle') {
       (socket as any).emit('circle:join', {circleId: activeConversationId, userId: user?._id});
       return () => {
         // Socket.io will handle cleanup automatically
       };
     } else if (conversation?.conversationType === 'community' || conversation?.conversationType === 'room' || (conversation?.type === 'group' && conversation?.conversationType !== 'private-circle')) {
-      // Community group - join group room
       const groupId = activeConversationId;
       (socket as any).emit('group:join', {groupId, userId: user?._id});
       return () => {
         // Socket.io will handle cleanup automatically
       };
     } else if (!conversation) {
-      // If conversation not loaded yet, try group join (most common for community hangout)
-      // This will be updated when conversation loads
       const groupId = activeConversationId;
       (socket as any).emit('group:join', {groupId, userId: user?._id});
       return () => {
         // Socket.io will handle cleanup automatically
       };
     } else {
-      // Default fallback
       (socket as any).emit('conversation:join', {conversationId: activeConversationId});
       return () => {
         (socket as any).emit('conversation:leave', {conversationId: activeConversationId});
@@ -111,25 +117,32 @@ const ChatWindow = () => {
 
   if (!activeConversationId) {
     return (
-      <section className="flex flex-1 items-center justify-center">
-        <p className="max-w-sm text-center text-sm text-slate-400">
-          Select a conversation to start chatting. Your encrypted experience is on the horizon!
-        </p>
-      </section>
+      <div className="flex flex-col h-full w-full bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-1 items-center justify-center">
+          <div className="text-center max-w-sm px-4">
+            <MessageSquare className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <p className="text-base font-medium text-gray-900 dark:text-gray-100 mb-2">Select a conversation</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Choose a conversation to start chatting</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <section className="relative flex flex-1 flex-col min-h-0">
-      <header className="glass-card mb-2 sm:mb-4 rounded-2xl sm:rounded-3xl p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col h-full w-full bg-gray-50 dark:bg-gray-900">
+      {/* HEADER - Fixed at top */}
+      <header className="h-14 sm:h-16 flex items-center px-3 sm:px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2 w-full">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-semibold text-slate-100 truncate">{conversation?.title ?? 'Conversation'}</h2>
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {conversation?.title ?? 'Conversation'}
+              </h2>
               {conversation?.conversationType === 'private-circle' && isAdmin && (
                 <button
                   onClick={() => setShowAddMembers(true)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-sky-600 hover:text-sky-600 hover:scale-105"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                   title="Add members"
                 >
                   <UserPlus className="h-4 w-4" />
@@ -137,25 +150,26 @@ const ChatWindow = () => {
               )}
             </div>
             {typingUsers.length > 0 ? (
-              <p className="text-xs text-sky-500 truncate">
+              <p className="text-xs sm:text-sm text-sky-500 truncate">
                 {typingUsers.length === 1 ? 'Someone is typing…' : `${typingUsers.length} people typing…`}
               </p>
             ) : (
-              <p className="text-xs text-slate-400 hidden sm:block">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
                 {conversation?.conversationType === 'private-circle' 
                   ? `${circleDetails?.members?.length || 0} member${(circleDetails?.members?.length || 0) !== 1 ? 's' : ''}`
-                  : 'Messages travel in near real-time via Socket.IO'}
+                  : 'Messages travel in near real-time'}
               </p>
             )}
           </div>
           {encryptionPreview && (
-            <span className="rounded-full bg-cyan-500/20 px-2 sm:px-3 py-1 text-[10px] sm:text-xs text-cyan-200 whitespace-nowrap flex-shrink-0">
+            <span className="rounded-full bg-sky-500/20 px-2 sm:px-3 py-1 text-[10px] sm:text-xs text-sky-600 dark:text-sky-400 whitespace-nowrap flex-shrink-0">
               <span className="hidden sm:inline">Encryption preview active</span>
               <span className="sm:hidden">E2E</span>
             </span>
           )}
         </div>
       </header>
+
       {conversation?.conversationType === 'private-circle' && (
         <AddCircleMembers
           circleId={activeConversationId!}
@@ -165,56 +179,68 @@ const ChatWindow = () => {
           currentMembers={currentMemberIds}
         />
       )}
-      <div className="flex flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-white/5 bg-slate-900/40 min-h-0">
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6">
-          {hasNextPage && (
-            <button
-              onClick={() => fetchNextPage()}
-              disabled={isFetchingNextPage}
-              className="mx-auto mb-4 flex items-center justify-center rounded-full border border-white/10 px-3 sm:px-4 py-2 text-xs text-slate-400 transition hover:text-slate-200"
-            >
-              {isFetchingNextPage ? 'Loading…' : 'Load previous messages'}
-            </button>
-          )}
-          <div className="flex flex-col gap-2 sm:gap-3">
-            {messages.map((message) => (
-              <MessageBubble
-                key={message._id}
-                message={message}
-                isOwn={message.senderId === user?._id}
-                onReact={(msg, emoji) => handleReact(msg._id, emoji)}
-              />
-            ))}
-            {messages.length === 0 && (
-              <motion.p initial={{opacity: 0}} animate={{opacity: 1}} className="text-center text-xs sm:text-sm text-slate-500 px-2">
-                Start the conversation with a glassy first message.
-              </motion.p>
-            )}
+
+      {/* MESSAGE LIST - Fills middle, scrollable */}
+      <div
+        ref={messagesEndRef}
+        className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2 sm:space-y-3 bg-gray-50 dark:bg-gray-900"
+      >
+        {hasNextPage && (
+          <button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="mx-auto mb-4 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 px-4 py-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+          >
+            {isFetchingNextPage ? 'Loading…' : 'Load previous messages'}
+          </button>
+        )}
+
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <MessageSquare className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+            <p className="text-sm sm:text-base font-medium text-gray-600 dark:text-gray-300 mb-2">
+              Start the conversation
+            </p>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+              Send a message to begin chatting
+            </p>
           </div>
-        </div>
+        )}
+
+        {messages.map((message) => (
+          <MessageBubble
+            key={message._id}
+            message={message}
+            isOwn={message.senderId === (user?._id || user?.userId)}
+            onReact={(msg, emoji) => handleReact(msg._id, emoji)}
+          />
+        ))}
       </div>
-      <ChatInput 
-        conversationId={activeConversationId} 
-        conversationType={
-          conversation?.conversationType === 'private-circle' 
-            ? 'private-circle' 
-            : conversation?.conversationType === 'community' || conversation?.conversationType === 'room' || conversation?.type === 'group'
-            ? 'group'
-            : 'group'
-        }
-        groupId={
-          conversation?.conversationType === 'community' || 
-          conversation?.conversationType === 'room' || 
-          (conversation?.type === 'group' && conversation?.conversationType !== 'private-circle') ||
-          !conversation // Default to group if conversation not loaded yet (common for community hangout)
-            ? activeConversationId 
-            : undefined
-        }
-        circleId={conversation?.conversationType === 'private-circle' ? activeConversationId : undefined}
-      />
-    </section>
+
+      {/* INPUT AREA - Fixed at bottom */}
+      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <ChatInput 
+          conversationId={activeConversationId} 
+          conversationType={
+            conversation?.conversationType === 'private-circle' 
+              ? 'private-circle' 
+              : conversation?.conversationType === 'community' || conversation?.conversationType === 'room' || conversation?.type === 'group'
+              ? 'group'
+              : 'group'
+          }
+          groupId={
+            conversation?.conversationType === 'community' || 
+            conversation?.conversationType === 'room' || 
+            (conversation?.type === 'group' && conversation?.conversationType !== 'private-circle') ||
+            !conversation
+              ? activeConversationId 
+              : undefined
+          }
+          circleId={conversation?.conversationType === 'private-circle' ? activeConversationId : undefined}
+        />
+      </div>
+    </div>
   );
 };
 
 export default ChatWindow;
-

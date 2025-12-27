@@ -91,13 +91,13 @@ export const LiveSessionApplicationForm = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-slate-200 mb-2">
-            <Code className="h-4 w-4 text-primaryTo" />
+            <Code className="h-4 w-4 text-sky-500" />
             Tech Skill <span className="text-rose-400">*</span>
           </label>
           <select
             value={techSkill}
             onChange={(e) => setTechSkill(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-primaryTo transition"
+            className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-sky-500 transition"
             required
           >
             <option value="">Select your tech skill</option>
@@ -123,7 +123,7 @@ export const LiveSessionApplicationForm = () => {
             placeholder="Tell us why you want to join..."
             maxLength={500}
             rows={4}
-            className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-primaryTo transition resize-none"
+            className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-500 transition resize-none"
           />
           <p className="mt-1 text-xs text-slate-500">{message.length}/500</p>
         </div>
@@ -139,14 +139,14 @@ export const LiveSessionApplicationForm = () => {
             onChange={(e) => setAvailability(e.target.value)}
             placeholder="e.g., Weekdays 6-8 PM EST"
             maxLength={200}
-            className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-primaryTo transition"
+            className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-500 transition"
           />
         </div>
 
         <button
           type="submit"
           disabled={applyMutation.isPending || !techSkill}
-          className="w-full rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           {applyMutation.isPending ? 'Submitting...' : 'Apply for Live Session'}
         </button>

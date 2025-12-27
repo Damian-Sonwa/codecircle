@@ -43,7 +43,7 @@ export const AppShell = ({sidebar, mainContent}: Props) => {
           {isMobile && (
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="glass-card fixed left-2 top-16 z-40 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/10 text-slate-200 transition hover:text-primaryTo"
+              className="glass-card fixed left-2 top-16 z-40 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-white/10 text-slate-200 transition hover:text-sky-600"
             >
               {sidebarOpen ? <X className="h-4 w-4 sm:h-5 sm:w-5" /> : <Menu className="h-4 w-4 sm:h-5 sm:w-5" />}
             </button>

@@ -19,9 +19,15 @@ export const FriendChatList = ({showSearch = true}: Props) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const activeConversationId = useChatStore((state) => state.activeConversationId);
   const setActiveConversation = useChatStore((state) => state.setActiveConversation);
   const setSidebarOpen = useChatStore((state) => state.setSidebarOpen);
   const [query, setQuery] = useState('');
+
+  // Defensive check - prevent crashes if activeConversationId is undefined
+  if (typeof activeConversationId === 'undefined') {
+    console.warn('[FriendChatList] activeConversationId is undefined, this should not happen');
+  }
 
   // Fetch friends
   const {data: friendsData, isLoading: isLoadingFriends} = useQuery<{
@@ -48,23 +54,43 @@ export const FriendChatList = ({showSearch = true}: Props) => {
       return data;
     },
     onSuccess: (conversation) => {
+      // Invalidate queries first
       queryClient.invalidateQueries({queryKey: ['conversations']});
-      setActiveConversation(conversation._id);
-      navigate('/messages?type=private');
+      // Set active conversation after a brief delay to ensure state is stable
+      setTimeout(() => {
+        setActiveConversation(conversation._id);
+        if (window.innerWidth < 1024) {
+          setSidebarOpen(false);
+        }
+      }, 100);
     },
   });
 
   const friends = friendsData?.friends ?? [];
 
+  // Filter to ONLY accepted friends (strict Friend Zone filtering)
+  const acceptedFriends = useMemo(() => {
+    // Filter friends - only show accepted friends in Friend Zone
+    // Backend should return only accepted friends, but we add defensive check
+    return friends.filter((friend) => {
+      // If friend has a status field, ensure it's 'accepted'
+      // Otherwise, assume all friends in the list are accepted
+      return !friend.status || friend.status === 'accepted';
+    });
+  }, [friends]);
+
   // Merge friends with their conversations
   const friendChats = useMemo(() => {
     const currentUserId = user?._id || user?.userId || user?.id;
-    return friends.map((friend) => {
+    if (!currentUserId) return [];
+    
+    return acceptedFriends.map((friend) => {
       // Find existing conversation with this friend
       // Backend uses userId, frontend might use _id - check both
       const friendId = friend._id || friend.userId || friend.id;
       const conversation = conversations?.find(
         (conv) => conv.type === 'dm' && 
+        conv.conversationType === 'friend' &&
         conv.participants.includes(friendId) &&
         conv.participants.includes(currentUserId)
       );
@@ -75,7 +101,7 @@ export const FriendChatList = ({showSearch = true}: Props) => {
         hasConversation: Boolean(conversation),
       };
     });
-  }, [friends, conversations, user]);
+  }, [acceptedFriends, conversations, user]);
 
   // Filter by search query
   const filteredChats = useMemo(() => {
@@ -90,19 +116,26 @@ export const FriendChatList = ({showSearch = true}: Props) => {
     const currentUserId = user?._id || user?.userId || user?.id;
     const friendId = friend._id || friend.userId || friend.id;
     
-    // Find existing conversation
+    if (!currentUserId || !friendId) {
+      console.error('[FriendChatList] Missing user IDs:', {currentUserId, friendId});
+      return;
+    }
+    
+    // Find existing conversation - ensure it's a friend DM conversation (NOT community)
     const existingConversation = conversations?.find(
       (conv) => conv.type === 'dm' && 
+      conv.conversationType === 'friend' &&
       conv.participants.includes(friendId) &&
       conv.participants.includes(currentUserId)
     );
 
     if (existingConversation) {
+      // Set active conversation first, then close sidebar if needed
       setActiveConversation(existingConversation._id);
-      navigate('/messages?type=private');
       if (window.innerWidth < 1024) {
         setSidebarOpen(false);
       }
+      // Don't navigate - we're already on the chats page
     } else {
       // Create new conversation - use friendId (backend expects userId)
       createConversationMutation.mutate(friendId);
@@ -130,14 +163,15 @@ export const FriendChatList = ({showSearch = true}: Props) => {
     );
   }
 
-  if (friends.length === 0) {
+  // Safety check - prevent render loops
+  if (acceptedFriends.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <Users className="h-16 w-16 text-slate-500 mb-4" />
         <p className="text-base font-medium text-slate-300 mb-2">You haven't added any friends yet</p>
         <p className="text-sm text-slate-500 mb-6">Add friends to start chatting</p>
         <button
-          onClick={() => navigate('/friends')}
+          onClick={() => navigate('/friends/requests')}
           className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
         >
           Find Friends
@@ -169,7 +203,8 @@ export const FriendChatList = ({showSearch = true}: Props) => {
           </div>
         ) : (
           filteredChats.map(({friend, conversation}) => {
-            const isActive = conversation?._id === activeConversationId;
+            // Safe comparison - handle undefined activeConversationId
+            const isActive = Boolean(conversation?._id && activeConversationId && conversation._id === activeConversationId);
             const lastMessage = conversation?.lastMessage;
             const unreadCount = conversation?.unreadCount || 0;
 

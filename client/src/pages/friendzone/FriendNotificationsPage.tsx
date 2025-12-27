@@ -68,7 +68,7 @@ const getNotificationIcon = (type: FriendNotification['type']) => {
 const getNotificationColor = (type: FriendNotification['type']) => {
   switch (type) {
     case 'friend_request':
-      return 'text-primaryTo bg-primaryTo/20';
+      return 'text-sky-500 bg-sky-500/20';
     case 'request_accepted':
       return 'text-emerald-400 bg-emerald-400/20';
     case 'unfriended':
@@ -100,10 +100,10 @@ export const FriendNotificationsPage = () => {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-primaryTo" />
+          <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-sky-500" />
           <h2 className="text-lg sm:text-xl font-semibold text-white">Friend Notifications</h2>
           {unreadCount > 0 && (
-            <span className="rounded-full bg-primaryTo/20 px-2.5 py-0.5 text-xs text-primaryTo">{unreadCount} new</span>
+            <span className="rounded-full bg-sky-500/20 px-2.5 py-0.5 text-xs text-sky-500">{unreadCount} new</span>
           )}
         </div>
       </div>
@@ -124,7 +124,7 @@ export const FriendNotificationsPage = () => {
               <div
                 key={notification._id}
                 className={`glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition ${
-                  !notification.read ? 'border-l-4 border-primaryTo' : ''
+                  !notification.read ? 'border-l-4 border-sky-500' : ''
                 }`}
               >
                 <div className="flex items-start gap-3 sm:gap-4">
@@ -141,7 +141,7 @@ export const FriendNotificationsPage = () => {
                     </div>
                   </div>
                   {!notification.read && (
-                    <div className="h-2 w-2 rounded-full bg-primaryTo flex-shrink-0 mt-2" />
+                    <div className="h-2 w-2 rounded-full bg-sky-500 flex-shrink-0 mt-2" />
                   )}
                 </div>
               </div>

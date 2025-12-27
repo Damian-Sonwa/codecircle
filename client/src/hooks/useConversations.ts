@@ -12,6 +12,10 @@ export const useConversations = (options?: UseConversationsOptions) => {
   const user = useAuthStore((state) => state.user);
   const {type = 'all'} = options || {};
   
+  // Import useAppReady dynamically to avoid circular dependency
+  // For now, we'll check user and token directly
+  const isReady = Boolean(accessToken && user);
+  
   return useQuery({
     queryKey: ['conversations', type],
     queryFn: async () => {
@@ -26,9 +30,10 @@ export const useConversations = (options?: UseConversationsOptions) => {
       const {data} = await api.get<Conversation[]>(url);
       return data;
     },
-    enabled: Boolean(accessToken && user),
+    enabled: isReady, // Only fetch when app is ready
     retry: 1,
     staleTime: 30000, // Cache for 30 seconds
+    refetchOnMount: true, // Always refetch on mount when enabled
   });
 };
 

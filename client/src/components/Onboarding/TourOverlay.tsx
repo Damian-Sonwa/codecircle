@@ -46,7 +46,7 @@ export const TourOverlay = ({visible, onClose}: Props) => {
             animate={{opacity: 1, y: 0}}
             className="pointer-events-auto absolute bottom-4 sm:bottom-10 left-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-xl -translate-x-1/2 rounded-2xl sm:rounded-[2rem] border border-white/10 bg-slate-900/80 p-4 sm:p-6 md:p-8 shadow-lift"
           >
-            <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] sm:tracking-[0.45em] text-primaryTo">Guided tour</p>
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] sm:tracking-[0.45em] text-sky-500">Guided tour</p>
             <h3 className="mt-2 sm:mt-3 text-lg sm:text-xl font-semibold text-slate-100">{tourSteps[current].title}</h3>
             <p className="mt-2 text-xs sm:text-sm text-slate-300">{tourSteps[current].description}</p>
             <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
@@ -56,7 +56,7 @@ export const TourOverlay = ({visible, onClose}: Props) => {
                     key={index}
                     className={
                       index === current
-                        ? 'h-1.5 sm:h-2 w-4 sm:w-6 rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo'
+                        ? 'h-1.5 sm:h-2 w-4 sm:w-6 rounded-full bg-gradient-to-r from-sky-500 to-sky-500'
                         : 'h-1.5 sm:h-2 w-4 sm:w-6 rounded-full bg-slate-700'
                     }
                   />
@@ -68,13 +68,13 @@ export const TourOverlay = ({visible, onClose}: Props) => {
                     setCurrent(0);
                     onClose();
                   }}
-                  className="flex-1 sm:flex-initial rounded-full border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs text-slate-300 transition hover:text-primaryTo"
+                  className="flex-1 sm:flex-initial rounded-full border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs text-slate-300 transition hover:text-sky-600"
                 >
                   Skip tour
                 </button>
                 <button
                   onClick={nextStep}
-                  className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:scale-[1.03]"
+                  className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-[1.03]"
                 >
                   {current === tourSteps.length - 1 ? 'Finish' : 'Next'}
                 </button>

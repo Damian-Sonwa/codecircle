@@ -97,8 +97,8 @@ const OAuthCallback = () => {
               className="flex justify-center mb-6"
             >
               <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-                <CheckCircle className="h-16 w-16 text-primary relative z-10" />
+                <div className="absolute inset-0 bg-sky-500/20 rounded-full blur-xl animate-pulse" />
+                <CheckCircle className="h-16 w-16 text-sky-500 relative z-10" />
               </div>
             </motion.div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
@@ -112,7 +112,7 @@ const OAuthCallback = () => {
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               className="flex justify-center"
             >
-              <Loader className="h-6 w-6 text-primary" />
+              <Loader className="h-6 w-6 text-sky-500" />
             </motion.div>
           </>
         ) : (
@@ -124,8 +124,8 @@ const OAuthCallback = () => {
               className="flex justify-center mb-6"
             >
               <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-                <MessageCircle className="h-16 w-16 text-primary relative z-10" />
+                <div className="absolute inset-0 bg-sky-500/20 rounded-full blur-xl animate-pulse" />
+                <MessageCircle className="h-16 w-16 text-sky-500 relative z-10" />
               </div>
             </motion.div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
@@ -139,7 +139,7 @@ const OAuthCallback = () => {
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               className="flex justify-center"
             >
-              <Loader className="h-6 w-6 text-primary" />
+              <Loader className="h-6 w-6 text-sky-500" />
             </motion.div>
           </>
         )}

@@ -418,7 +418,7 @@ const MessageInput = ({ activeChat }) => {
             disabled={(!message.trim() && attachments.length === 0) || isVoiceUploading}
             className={`h-10 w-10 rounded-full flex-shrink-0 transition-all duration-200 shadow-md hover:shadow-lg ${
               message.trim() || attachments.length > 0
-                ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                ? 'bg-sky-500 hover:bg-sky-600 text-white'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
             title="Send message"

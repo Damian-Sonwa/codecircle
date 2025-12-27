@@ -18,8 +18,8 @@ export const SettingsPage = () => {
                   onClick={() => setTheme(option)}
                   className={
                     option === theme
-                      ? 'rounded-2xl bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-sm font-semibold text-white shadow-lift'
-                      : 'rounded-2xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:border-primaryTo'
+                      ? 'rounded-2xl bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-lift'
+                      : 'rounded-2xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:border-sky-600'
                   }
                 >
                   {option}
@@ -36,7 +36,7 @@ export const SettingsPage = () => {
               onClick={toggleAmbient}
               className={
                 ambientBackground
-                  ? 'rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-xs font-semibold text-white shadow-lift'
+                  ? 'rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lift'
                   : 'rounded-full border border-white/10 px-4 py-2 text-xs text-slate-300'
               }
             >
@@ -52,7 +52,7 @@ export const SettingsPage = () => {
               onClick={toggleSound}
               className={
                 soundEnabled
-                  ? 'rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-xs font-semibold text-white shadow-lift'
+                  ? 'rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lift'
                   : 'rounded-full border border-white/10 px-4 py-2 text-xs text-slate-300'
               }
             >

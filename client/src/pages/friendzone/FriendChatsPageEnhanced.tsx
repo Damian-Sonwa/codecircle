@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState, useEffect, useRef} from 'react';
 import {motion} from 'framer-motion';
 import {AppShell} from '@/components/layout/AppShell';
 import {FriendChatList} from '@/components/Chat/FriendChatList';
@@ -7,17 +7,29 @@ import {useQuery} from '@tanstack/react-query';
 import {api, endpoints} from '@/services/api';
 import {type UserSummary} from '@/types';
 import {MessageSquare, Users, UserPlus} from 'lucide-react';
-import {useNavigate} from 'react-router-dom';
+import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useChatStore} from '@/store/chatStore';
+import {useAuthStore} from '@/store/authStore';
+import {useConversations} from '@/hooks/useConversations';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 import {cn} from '@/utils/styles';
 
 type Tab = 'all' | 'friends' | 'requests';
 
 export const FriendChatsPageEnhanced = () => {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
+  const {appReady} = useAppReady();
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const navigate = useNavigate();
   const activeConversationId = useChatStore((state) => state.activeConversationId);
+  const setActiveConversation = useChatStore((state) => state.setActiveConversation);
+  const user = useAuthStore((state) => state.user);
+  const [searchParams] = useSearchParams();
+  const hasProcessedUrlFriend = useRef(false);
+  const {data: conversations, isLoading: isLoadingConversations} = useConversations({type: 'friend'});
 
+  // Ensure data is fetched when app is ready
   const {data: friendsData, isLoading: isLoadingFriends} = useQuery({
     queryKey: ['friends'],
     queryFn: async () => {
@@ -25,11 +37,72 @@ export const FriendChatsPageEnhanced = () => {
         endpoints.users.friends
       );
       return data;
-    }
+    },
+    enabled: appReady, // Only fetch when app is ready
   });
 
   const friends = friendsData?.friends ?? [];
   const friendRequests = friendsData?.friendRequests ?? [];
+  const friendIdFromUrl = searchParams.get('friendId');
+
+  // Handle opening chat from URL parameter (e.g., after accepting friend request)
+  useEffect(() => {
+    if (!friendIdFromUrl || hasProcessedUrlFriend.current) return;
+    
+    const currentUserId = user?._id || user?.userId || user?.id;
+    if (!currentUserId) return;
+
+    // Wait for conversations to load
+    if (!conversations) return;
+
+    // Find conversation with this friend
+    const conversation = conversations.find(
+      (conv) => conv.type === 'dm' && 
+      conv.participants.includes(friendIdFromUrl) &&
+      conv.participants.includes(currentUserId)
+    );
+
+    if (conversation) {
+      // Set active conversation and mark as processed
+      hasProcessedUrlFriend.current = true;
+      setActiveConversation(conversation._id);
+      // Clean up URL parameter after a brief delay to ensure state is set
+      setTimeout(() => {
+        navigate('/friends/chats', {replace: true});
+      }, 100);
+    } else {
+      // If no conversation exists yet, wait a bit and retry once
+      // This handles the case where conversation is still being created
+      if (!hasProcessedUrlFriend.current) {
+        setTimeout(() => {
+          const retryConversation = conversations.find(
+            (conv) => conv.type === 'dm' && 
+            conv.participants.includes(friendIdFromUrl) &&
+            conv.participants.includes(currentUserId)
+          );
+          if (retryConversation) {
+            hasProcessedUrlFriend.current = true;
+            setActiveConversation(retryConversation._id);
+            navigate('/friends/chats', {replace: true});
+          } else {
+            // Mark as processed to avoid infinite loop
+            hasProcessedUrlFriend.current = true;
+          }
+        }, 1000);
+      }
+    }
+  }, [friendIdFromUrl, conversations, user, setActiveConversation, navigate]);
+
+  useEffect(() => {
+    if (appReady && !isLoadingFriends && !isLoadingConversations) {
+      console.log('[FriendChats] App ready, friends and conversations loaded');
+    }
+  }, [appReady, isLoadingFriends, isLoadingConversations]);
+
+  // Early return AFTER all hooks have been called
+  if (!appReady) {
+    return <AppLoader message="Loading friend chats..." />;
+  }
 
   const tabs = [
     {id: 'friends' as Tab, label: 'Friends', icon: Users, count: friends.length},
@@ -57,7 +130,7 @@ export const FriendChatsPageEnhanced = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 text-sm font-medium transition relative',
-                  isActive ? 'text-primaryTo' : 'text-slate-400 hover:text-slate-200'
+                  isActive ? 'text-sky-500' : 'text-slate-400 hover:text-slate-200'
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -66,7 +139,7 @@ export const FriendChatsPageEnhanced = () => {
                   <span
                     className={cn(
                       'rounded-full px-1.5 py-0.5 text-xs',
-                      isActive ? 'bg-primaryTo/20 text-primaryTo' : 'bg-slate-700 text-slate-400'
+                      isActive ? 'bg-sky-500/20 text-sky-500' : 'bg-slate-700 text-slate-400'
                     )}
                   >
                     {tab.count}
@@ -75,7 +148,7 @@ export const FriendChatsPageEnhanced = () => {
                 {isActive && (
                   <motion.div
                     layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primaryTo"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500"
                     initial={false}
                   />
                 )}
@@ -90,7 +163,19 @@ export const FriendChatsPageEnhanced = () => {
         {activeTab === 'friends' && (
           <AppShell
             sidebar={<FriendChatList showSearch />}
-            mainContent={activeConversationId ? <PrivateChatWindow /> : undefined}
+            mainContent={
+              activeConversationId ? (
+                <PrivateChatWindow key={activeConversationId} />
+              ) : (
+                <div className="flex flex-1 items-center justify-center">
+                  <div className="text-center max-w-sm">
+                    <MessageSquare className="h-16 w-16 text-slate-500 mx-auto mb-4" />
+                    <p className="text-base font-medium text-slate-300 mb-2">Select a friend to start chatting</p>
+                    <p className="text-sm text-slate-500">Choose a friend from the list to begin your conversation</p>
+                  </div>
+                </div>
+              )
+            }
           />
         )}
 
@@ -116,7 +201,7 @@ export const FriendChatsPageEnhanced = () => {
                     className="glass-card rounded-xl sm:rounded-2xl p-4 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold">
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold">
                         {request.username.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -127,7 +212,7 @@ export const FriendChatsPageEnhanced = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => navigate('/friends/requests')}
-                        className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:scale-105"
+                        className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
                       >
                         View
                       </button>

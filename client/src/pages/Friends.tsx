@@ -65,7 +65,7 @@ export const FriendsPage = () => {
                       <p className="text-xs text-slate-400 truncate">{request.skills?.slice(0, 2).join(', ')}{request.skills && request.skills.length > 2 ? '...' : ''}</p>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
-                      <button onClick={() => respondMutation.mutate({requesterId: request._id, accept: true})} className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-white">
+                      <button onClick={() => respondMutation.mutate({requesterId: request._id, accept: true})} className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-white hover:bg-sky-600">
                         Accept
                       </button>
                       <button onClick={() => respondMutation.mutate({requesterId: request._id, accept: false})} className="flex-1 sm:flex-initial rounded-full border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 text-xs text-slate-300">

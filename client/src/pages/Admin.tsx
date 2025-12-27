@@ -25,7 +25,7 @@ export const AdminPage = () => {
   return (
     <div className="mx-auto w-full max-w-5xl px-3 sm:px-4 md:px-6 pb-8 sm:pb-14 pt-16 sm:pt-20 md:pt-24">
       <header className="flex flex-col items-center gap-3 sm:gap-4 rounded-2xl sm:rounded-[2rem] border border-white/10 bg-slate-900/60 p-4 sm:p-6 md:p-10 text-center shadow-glass">
-        <ShieldCheck className="h-6 w-6 sm:h-8 sm:w-8 text-primaryTo" />
+        <ShieldCheck className="h-6 w-6 sm:h-8 sm:w-8 text-sky-500" />
         <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white">Admin control room</h1>
         <p className="max-w-2xl text-xs sm:text-sm text-slate-300 px-2">
           Moderate communities, review analytics, and keep the space safe for developers to learn and collaborate.

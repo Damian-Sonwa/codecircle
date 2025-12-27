@@ -39,13 +39,13 @@ export const ProfileCard = () => {
       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         <button
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          className="rounded-full border border-white/10 bg-slate-900/70 p-1.5 sm:p-2 text-slate-200 transition hover:text-primaryTo"
+          className="rounded-full border border-white/10 bg-slate-900/70 p-1.5 sm:p-2 text-slate-200 transition hover:text-sky-600"
         >
           {theme === 'light' ? <Sun className="h-3 w-3 sm:h-4 sm:w-4" /> : <MoonStar className="h-3 w-3 sm:h-4 sm:w-4" />}
         </button>
         <button
           onClick={() => setSettingsOpen(true)}
-          className="rounded-full border border-white/10 bg-slate-900/70 p-1.5 sm:p-2 text-slate-200 transition hover:text-primaryTo"
+          className="rounded-full border border-white/10 bg-slate-900/70 p-1.5 sm:p-2 text-slate-200 transition hover:text-sky-600"
         >
           <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
         </button>

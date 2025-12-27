@@ -57,13 +57,13 @@ export const ConversationListEnhanced = ({filter = 'all', showSearch = true, sho
           {showNewChatButton && (
             <button
               onClick={handleNewChat}
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-primaryTo hover:text-primaryTo"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-sky-600 hover:text-sky-600"
               title="New conversation"
             >
               <Plus className="h-4 w-4" />
             </button>
           )}
-          <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-primaryTo" />
+          <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
         </div>
       </div>
       {showSearch && (
@@ -93,7 +93,7 @@ export const ConversationListEnhanced = ({filter = 'all', showSearch = true, sho
             {showNewChatButton && (
               <button
                 onClick={handleNewChat}
-                className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:scale-105"
+                className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
               >
                 Start a conversation
               </button>
@@ -116,18 +116,18 @@ export const ConversationListEnhanced = ({filter = 'all', showSearch = true, sho
                   }
                 }}
                 className={cn(
-                  'flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-transparent bg-slate-900/50 px-2 sm:px-3 py-2 sm:py-3 text-left transition hover:border-primaryFrom/40',
-                  isActive ? 'border-primaryTo/50 bg-slate-900/80' : ''
+                  'flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-transparent bg-slate-900/50 px-2 sm:px-3 py-2 sm:py-3 text-left transition hover:border-sky-500/40',
+                  isActive ? 'border-sky-500/50 bg-slate-900/80' : ''
                 )}
               >
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <div className="relative flex-shrink-0">
-                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold text-sm sm:text-base">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold text-sm sm:text-base">
                       {conversation.title?.charAt(0).toUpperCase() ?? (conversation.type === 'dm' ? 'D' : 'G')}
                     </div>
                     {conversation.type === 'group' && (
                       <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-slate-900 border-2 border-slate-900 flex items-center justify-center">
-                        <Users className="h-2.5 w-2.5 text-primaryTo" />
+                        <Users className="h-2.5 w-2.5 text-sky-500" />
                       </div>
                     )}
                   </div>
@@ -138,7 +138,7 @@ export const ConversationListEnhanced = ({filter = 'all', showSearch = true, sho
                       </p>
                       <span className="flex items-center gap-1 flex-shrink-0">
                         {conversation.type === 'dm' && <Lock className="h-3 w-3 text-slate-400" />}
-                        {isPinned && <PinIcon className="h-3 w-3 text-primaryTo" />}
+                        {isPinned && <PinIcon className="h-3 w-3 text-violet-500" />}
                         {isArchived && <Archive className="h-3 w-3 text-slate-500" />}
                         {conversation.locked && <Lock className="h-3 w-3 text-rose-500" />}
                       </span>

@@ -3,30 +3,34 @@ import {useQuery} from '@tanstack/react-query';
 import {motion} from 'framer-motion';
 import {Sparkles, Users, BookOpen, Trophy} from 'lucide-react';
 import {useAuthStore} from '@/store/authStore';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 import {api, endpoints} from '@/services/api';
 import {type KnowledgePost} from '@/types';
 
 export const DashboardPage = () => {
+  const {appReady} = useAppReady();
   const user = useAuthStore((state) => state.user);
   
-  // Visible version indicator - REMOVE THIS AFTER VERIFICATION
-  useEffect(() => {
-    console.log('[Dashboard] ✅ NEW VERSION LOADED - 2024-01-15-refactor-v3');
-    const indicator = document.createElement('div');
-    indicator.id = 'dashboard-version-check';
-    indicator.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#10b981;color:white;padding:12px 16px;border-radius:8px;font-size:12px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:monospace;';
-    indicator.innerHTML = '✅ NEW VERSION LOADED<br/>v3 - 2024-01-15';
-    document.body.appendChild(indicator);
-    setTimeout(() => indicator.remove(), 10000); // Remove after 10 seconds
-  }, []);
-  
-  const {data: knowledge = []} = useQuery({
+  // Ensure data is fetched when app is ready
+  const {data: knowledge = [], isLoading: isLoadingKnowledge} = useQuery({
     queryKey: ['knowledge', {type: 'daily-bite'}],
     queryFn: async () => {
       const {data} = await api.get<KnowledgePost[]>(`${endpoints.knowledge.root}?type=daily-bite`);
       return data;
-    }
+    },
+    enabled: appReady, // Only fetch when app is ready
   });
+
+  useEffect(() => {
+    if (appReady && !isLoadingKnowledge && !knowledge.length) {
+      console.log('[Dashboard] App ready, knowledge data loaded');
+    }
+  }, [appReady, isLoadingKnowledge, knowledge]);
+
+  if (!appReady) {
+    return <AppLoader message="Loading dashboard..." />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-8 sm:pb-14 pt-16 sm:pt-20 md:pt-24">

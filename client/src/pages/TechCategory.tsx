@@ -110,8 +110,8 @@ export const TechCategoryPage = () => {
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition',
                   isActive
-                    ? 'bg-gradient-to-r from-primaryFrom to-primaryTo text-white shadow-lift'
-                    : 'bg-slate-900/60 text-slate-300 border border-white/10 hover:border-primaryTo/40'
+                    ? 'bg-gradient-to-r from-sky-500 to-sky-500 text-white shadow-lift'
+                    : 'bg-slate-900/60 text-slate-300 border border-white/10 hover:border-sky-600/40'
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -131,13 +131,13 @@ export const TechCategoryPage = () => {
           <div className="flex flex-wrap gap-3 justify-center">
             <button
               onClick={() => navigate('/explore')}
-              className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:scale-105"
+              className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
             >
               Create first post
             </button>
             <button
               onClick={() => navigate('/explore')}
-              className="rounded-full border border-white/10 bg-slate-900/60 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-primaryTo"
+              className="rounded-full border border-white/10 bg-slate-900/60 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-sky-600"
             >
               Follow tech creators
             </button>
@@ -150,13 +150,13 @@ export const TechCategoryPage = () => {
               key={group._id}
               initial={{opacity: 0, y: 10}}
               animate={{opacity: 1, y: 0}}
-              className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 transition hover:border-primaryTo/30 cursor-pointer"
+              className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 transition hover:border-sky-500/30 cursor-pointer"
               onClick={() => navigate(`/explore`)}
             >
               {/* Author & Topic */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold text-sm">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold text-sm">
                     {group.name?.charAt(0).toUpperCase() ?? 'T'}
                   </div>
                   <div>

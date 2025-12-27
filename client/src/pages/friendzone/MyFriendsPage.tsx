@@ -1,3 +1,4 @@
+import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Users, MessageSquare} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
@@ -5,8 +6,11 @@ import {api, endpoints} from '@/services/api';
 import {type UserSummary} from '@/types';
 import {useChatStore} from '@/store/chatStore';
 import {useConversations} from '@/hooks/useConversations';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 
 export const MyFriendsPage = () => {
+  const {appReady} = useAppReady();
   const navigate = useNavigate();
   const setActiveConversation = useChatStore((state) => state.setActiveConversation);
   const {data: conversations} = useConversations();
@@ -16,8 +20,20 @@ export const MyFriendsPage = () => {
     queryFn: async () => {
       const {data} = await api.get<{friends: UserSummary[]; requests: UserSummary[]}>(endpoints.users.friends);
       return data;
-    }
+    },
+    enabled: appReady, // Only fetch when app is ready
+    refetchOnMount: true,
   });
+
+  useEffect(() => {
+    if (appReady && !isLoading && data) {
+      console.log('[MyFriends] App ready, friends data loaded');
+    }
+  }, [appReady, isLoading, data]);
+
+  if (!appReady) {
+    return <AppLoader message="Loading friends..." />;
+  }
 
   const handleStartChat = (friend: UserSummary) => {
     // Find existing DM conversation with this friend
@@ -62,7 +78,7 @@ export const MyFriendsPage = () => {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 sm:h-6 sm:w-6 text-primaryTo" />
+          <Users className="h-5 w-5 sm:h-6 sm:w-6 text-sky-500" />
           <h2 className="text-lg sm:text-xl font-semibold text-white">My Friends</h2>
           <span className="rounded-full bg-slate-700 px-2.5 py-0.5 text-xs text-slate-300">{friends.length}</span>
         </div>
@@ -79,11 +95,11 @@ export const MyFriendsPage = () => {
           {friends.map((friend) => (
             <div
               key={friend._id}
-              className="glass-card group rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition hover:border-primaryTo/30 cursor-pointer"
+              className="glass-card group rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition hover:border-sky-500/30 cursor-pointer"
             >
               <div className="flex items-start gap-3 sm:gap-4">
                 <div className="relative flex-shrink-0">
-                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold text-base sm:text-lg">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold text-base sm:text-lg">
                     {friend.username.charAt(0).toUpperCase()}
                   </div>
                   {friend.status && (
@@ -115,7 +131,7 @@ export const MyFriendsPage = () => {
               <div className="mt-4 flex gap-2">
                 <button
                   onClick={() => handleStartChat(friend)}
-                  className="flex-1 rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:scale-105 flex items-center justify-center gap-2"
+                  className="flex-1 rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 flex items-center justify-center gap-2"
                 >
                   <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
                   Chat

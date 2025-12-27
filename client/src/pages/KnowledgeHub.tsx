@@ -37,7 +37,7 @@ export const KnowledgeHubPage = () => {
           <h1 className="mt-2 sm:mt-3 text-xl sm:text-2xl md:text-3xl font-semibold text-white">Stay sharp with curated insights</h1>
           <p className="mt-2 max-w-lg text-xs sm:text-sm text-slate-300">Short tutorials, daily tech bites, and quick challenges from the community.</p>
         </div>
-        <button className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift whitespace-nowrap mt-2 lg:mt-0">
+        <button className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift whitespace-nowrap mt-2 lg:mt-0 hover:bg-sky-600">
           Share a tutorial
         </button>
       </header>

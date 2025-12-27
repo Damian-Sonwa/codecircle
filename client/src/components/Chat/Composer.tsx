@@ -118,7 +118,7 @@ export const Composer = ({conversationId}: Props) => {
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-slate-900/70 text-slate-200 transition hover:text-primaryTo"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-slate-900/70 text-slate-200 transition hover:text-sky-600"
           >
             <Smile className="h-4 w-4" />
           </button>
@@ -163,7 +163,7 @@ export const Composer = ({conversationId}: Props) => {
         <button
           type="submit"
           disabled={!conversationId || !composerText.trim()}
-          className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-gradient-to-tr from-primaryFrom to-primaryTo text-white shadow-lift transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-gradient-to-tr from-sky-500 to-sky-500 text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send className="h-4 w-4" />
         </button>

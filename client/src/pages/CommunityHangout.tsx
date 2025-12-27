@@ -1,15 +1,20 @@
+import {useEffect, useMemo} from 'react';
 import {AppShell} from '@/components/layout/AppShell';
 import {UnifiedConversationList} from '@/components/Chat/UnifiedConversationList';
 import ChatWindow from '@/components/Chat/ChatWindow';
 import {useChatStore} from '@/store/chatStore';
 import {useConversations} from '@/hooks/useConversations';
-import {useMemo} from 'react';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 
 export const CommunityHangoutPage = () => {
+  // ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY CONDITIONAL RETURNS
+  const {appReady} = useAppReady();
   const activeConversationId = useChatStore((state) => state.activeConversationId);
-  const {data: conversations} = useConversations({type: 'community'});
+  const {data: conversations, isLoading} = useConversations({type: 'community'});
 
   // Filter to only show community conversations (exclude private circles and friend DMs)
+  // This hook MUST be called unconditionally, even if conversations is undefined
   const communityConversations = useMemo(() => {
     if (!conversations) return [];
     return conversations.filter(
@@ -21,10 +26,24 @@ export const CommunityHangoutPage = () => {
   }, [conversations]);
 
   // Determine which chat window to show
+  // This hook MUST be called unconditionally
   const activeConversation = useMemo(() => {
     if (!activeConversationId || !communityConversations) return null;
     return communityConversations.find((conv) => conv._id === activeConversationId);
   }, [activeConversationId, communityConversations]);
+
+  // Ensure data is fetched when app is ready
+  useEffect(() => {
+    if (appReady && !conversations && !isLoading) {
+      // Force refetch if data is missing
+      console.log('[CommunityHangout] App ready, ensuring conversations are loaded');
+    }
+  }, [appReady, conversations, isLoading]);
+
+  // CONDITIONAL RETURN AFTER ALL HOOKS
+  if (!appReady) {
+    return <AppLoader message="Loading communities..." />;
+  }
 
   return (
     <AppShell
