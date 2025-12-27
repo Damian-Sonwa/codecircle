@@ -42,8 +42,22 @@ export interface SocialLink {
 export interface Conversation {
   _id: string;
   type: 'dm' | 'group';
+  conversationType?: 'friend' | 'community' | 'room';
   title?: string;
   participants: string[];
+  otherParticipant?: {
+    userId: string;
+    username: string;
+    online?: boolean;
+    lastSeen?: string;
+  };
+  lastMessage?: {
+    content: string;
+    senderId: string;
+    senderName: string;
+    timestamp: string;
+  };
+  unreadCount?: number;
   pinnedBy: string[];
   archivedBy: string[];
   locked?: boolean;
@@ -138,5 +152,35 @@ export interface EngagementMetric {
   classesAttended: number;
   badges: string[];
   xp: number;
+}
+
+export interface LiveSessionApplication {
+  applicationId: string;
+  userId: string;
+  username: string;
+  techSkill: string;
+  message?: string;
+  availability?: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  roomId?: string | null;
+  approvedBy?: string | null;
+  approvedByUsername?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoomDetails {
+  roomId: string;
+  techSkill: string;
+  participants: Array<{
+    userId: string;
+    username: string;
+    techSkill: string;
+    joinedAt: string;
+  }>;
+  participantCount: number;
 }
 

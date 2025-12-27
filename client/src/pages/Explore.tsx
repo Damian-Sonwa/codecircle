@@ -1,22 +1,138 @@
-import {useMemo, useState} from 'react';
-import {useLocation} from 'react-router-dom';
+import {useMemo, useState, useEffect} from 'react';
+import {useLocation, useNavigate} from 'react-router-dom';
 import {motion} from 'framer-motion';
+import {useQuery} from '@tanstack/react-query';
 import {useNotificationStore} from '@/store/notificationStore';
+import {techGroupsAPI} from '@/lib/api';
+import {useAuthStore} from '@/store/authStore';
+import {useChatStore} from '@/store/chatStore';
+import {SkillAssessmentModal} from '@/components/Explore/SkillAssessmentModal';
 
 const skills = ['Fullstack', 'Backend', 'Frontend', 'Cybersecurity', 'Data Science', 'Cloud', 'UI/UX', 'AI/ML'];
 
 export const ExplorePage = () => {
   const {search} = useLocation();
+  const navigate = useNavigate();
   const params = useMemo(() => new URLSearchParams(search), [search]);
   const [activeSkill, setActiveSkill] = useState(params.get('tag')?.replace(/-/g, ' ') ?? 'Fullstack');
+  const [assessmentModal, setAssessmentModal] = useState<{groupId: string; groupName: string; techSkill: string} | null>(null);
   const pushNotification = useNotificationStore((state) => state.push);
+  const user = useAuthStore((state) => state.user);
+  const setActiveConversation = useChatStore((state) => state.setActiveConversation);
+  
+  // Handle groupId from URL params (when navigating from View Group button)
+  useEffect(() => {
+    const groupId = params.get('groupId');
+    if (groupId) {
+      setActiveConversation(groupId);
+      navigate('/community-hangout', {replace: true});
+    }
+  }, [params, setActiveConversation, navigate]);
 
-  const handleJoin = (skill: string) => {
-    pushNotification({
-      id: `join-${skill}`,
-      title: 'Request sent',
-      message: `Community moderators will confirm your access to ${skill}.`
+  // Fetch tech groups from database
+  const {data: techGroups = [], isLoading, error} = useQuery({
+    queryKey: ['tech-groups-explore'],
+    queryFn: async () => {
+      const groups = await techGroupsAPI.list();
+      return groups;
+    },
+    retry: 2,
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+  // Filter groups by active skill (match topics or name)
+  const filteredGroups = useMemo(() => {
+    if (!techGroups || techGroups.length === 0) return [];
+    
+    // Map skills to related keywords for better matching
+    const skillKeywords: Record<string, string[]> = {
+      'fullstack': ['fullstack', 'full-stack', 'full stack', 'web development', 'mern', 'mean', 'stack'],
+      'backend': ['backend', 'back-end', 'back end', 'server', 'api', 'node', 'express', 'database'],
+      'frontend': ['frontend', 'front-end', 'front end', 'react', 'vue', 'angular', 'ui', 'ux', 'javascript', 'typescript'],
+      'cybersecurity': ['cybersecurity', 'cyber security', 'security', 'hacking', 'penetration', 'encryption'],
+      'data science': ['data science', 'data', 'analytics', 'machine learning', 'ml', 'ai', 'python', 'pandas'],
+      'cloud': ['cloud', 'aws', 'azure', 'gcp', 'devops', 'infrastructure'],
+      'ui/ux': ['ui', 'ux', 'design', 'figma', 'user interface', 'user experience'],
+      'ai/ml': ['ai', 'ml', 'artificial intelligence', 'machine learning', 'deep learning', 'neural', 'tensorflow'],
+    };
+    
+    const skillLower = activeSkill.toLowerCase();
+    const keywords = skillKeywords[skillLower] || [skillLower];
+    
+    return techGroups.filter(group => {
+      const groupTopics = (group.topics || []).join(' ').toLowerCase();
+      const groupName = (group.name || '').toLowerCase();
+      const groupDescription = (group.description || '').toLowerCase();
+      const searchText = `${groupTopics} ${groupName} ${groupDescription}`;
+      
+      // Check if any keyword matches
+      return keywords.some(keyword => searchText.includes(keyword.toLowerCase()));
     });
+  }, [techGroups, activeSkill]);
+
+  const handleJoin = async (groupId: string, groupName: string) => {
+    if (!user) {
+      pushNotification({
+        id: 'join-error-auth',
+        title: 'Authentication required',
+        message: 'Please log in to join groups.'
+      });
+      return;
+    }
+
+    // Check if user is already a member
+    const group = filteredGroups.find((g) => (g.groupId || g._id) === groupId);
+    if (group?.members?.includes(user.userId)) {
+      // Navigate to Community Hangout and select this group
+      setActiveConversation(groupId);
+      navigate('/community-hangout');
+      return;
+    }
+
+    // Extract tech skill from group
+    const techSkill = extractTechSkillFromGroup(group || {name: groupName, topics: []});
+    
+    // Open assessment modal instead of directly joining
+    setAssessmentModal({
+      groupId,
+      groupName,
+      techSkill: techSkill || activeSkill,
+    });
+  };
+
+  const extractTechSkillFromGroup = (group: any): string => {
+    if (!group) return activeSkill;
+    
+    // Check topics first
+    if (Array.isArray(group.topics) && group.topics.length > 0) {
+      const skillTopics = ['Frontend', 'Backend', 'Fullstack', 'Mobile', 'AI/ML', 'Data Science', 'Cybersecurity', 'Cloud', 'DevOps', 'UI/UX'];
+      for (const topic of group.topics) {
+        const matched = skillTopics.find((skill) => topic.toLowerCase().includes(skill.toLowerCase()));
+        if (matched) return matched;
+      }
+    }
+    
+    // Check group name
+    const name = (group.name || '').toLowerCase();
+    const skillMap: Record<string, string> = {
+      frontend: 'Frontend',
+      backend: 'Backend',
+      fullstack: 'Fullstack',
+      'full-stack': 'Fullstack',
+      mobile: 'Mobile',
+      'ai/ml': 'AI/ML',
+      'data science': 'Data Science',
+      cybersecurity: 'Cybersecurity',
+      cloud: 'Cloud',
+      devops: 'DevOps',
+      'ui/ux': 'UI/UX',
+    };
+    
+    for (const [key, value] of Object.entries(skillMap)) {
+      if (name.includes(key)) return value;
+    }
+    
+    return activeSkill; // Fallback to active skill filter
   };
 
   return (
@@ -42,34 +158,74 @@ export const ExplorePage = () => {
       </header>
 
       <section className="mt-6 sm:mt-10 grid gap-4 sm:gap-6 lg:grid-cols-2">
-        {communityCards[activeSkill]?.map((card) => (
-          <motion.article key={card.title} whileHover={{y: -3}} className="glass-card flex flex-col gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-7">
+        {isLoading && (
+          <div className="col-span-2 flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primaryTo border-r-transparent mb-4"></div>
+              <p className="text-sm text-slate-400">Loading tech groups...</p>
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="col-span-2 text-center py-12">
+            <p className="text-sm text-rose-400 mb-2">Failed to load tech groups</p>
+            <p className="text-xs text-slate-500">Please refresh the page or check your connection</p>
+          </div>
+        )}
+        {!isLoading && !error && filteredGroups.length > 0 && filteredGroups.map((group) => (
+          <motion.article key={group.groupId || group._id} whileHover={{y: -3}} className="glass-card flex flex-col gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-7">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{card.badge}</p>
-              <h2 className="mt-3 text-xl font-semibold text-white">{card.title}</h2>
-              <p className="mt-2 text-sm text-slate-300">{card.description}</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{group.type === 'classroom' ? 'Classroom' : 'Community'}</p>
+              <h2 className="mt-3 text-xl font-semibold text-white">{group.name}</h2>
+              <p className="mt-2 text-sm text-slate-300">{group.description || 'Join this community to collaborate and learn.'}</p>
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-400">
-              <span>Members • {card.members}</span>
+              <span>Members • {group.members?.length || group.memberCount || 0}</span>
               <span className="h-1 w-1 rounded-full bg-slate-600" />
-              <span>Weekly sessions • {card.sessions}</span>
+              <span>Topics • {group.topics?.length || 0}</span>
             </div>
-            <div className="flex gap-2">
-              {card.tags.map((tag) => (
+            <div className="flex gap-2 flex-wrap">
+              {group.topics && group.topics.slice(0, 5).map((tag: string) => (
                 <span key={tag} className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">
                   #{tag}
                 </span>
               ))}
             </div>
             <button
-              onClick={() => handleJoin(activeSkill)}
+              onClick={() => handleJoin(group.groupId || group._id, group.name)}
               className="mt-auto rounded-full bg-gradient-to-r from-secondaryFrom to-secondaryTo px-4 py-2 text-sm font-semibold text-white shadow-lift"
             >
-              Join {activeSkill} circle
+              {group.members?.includes(user?.userId) ? 'View Group' : 'Join Circle'}
             </button>
           </motion.article>
-        )) ?? <p className="text-sm text-slate-400">More communities coming soon.</p>}
+        ))}
+        {!isLoading && !error && filteredGroups.length === 0 && techGroups.length > 0 && (
+          <div className="col-span-2 text-center py-12">
+            <p className="text-sm text-slate-400 mb-2">No groups found for {activeSkill}</p>
+            <p className="text-xs text-slate-500">Try another skill or create a new group</p>
+          </div>
+        )}
+        {!isLoading && !error && techGroups.length === 0 && (
+          <div className="col-span-2 text-center py-12">
+            <p className="text-sm text-slate-400 mb-2">No tech groups available yet</p>
+            <p className="text-xs text-slate-500">Groups will appear here once created</p>
+          </div>
+        )}
       </section>
+
+      {/* Assessment Modal */}
+      {assessmentModal && (
+        <SkillAssessmentModal
+          groupId={assessmentModal.groupId}
+          groupName={assessmentModal.groupName}
+          techSkill={assessmentModal.techSkill}
+          isOpen={true}
+          onClose={() => setAssessmentModal(null)}
+          onSuccess={() => {
+            setAssessmentModal(null);
+          }}
+        />
+      )}
     </div>
   );
 };

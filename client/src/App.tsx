@@ -3,6 +3,8 @@ import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
 import {LoginPage} from '@/pages/Login';
 import {RegisterPage} from '@/pages/Register';
 import {ChatPage} from '@/pages/Chat';
+import {CommunityHangoutPage} from '@/pages/CommunityHangout';
+import {MyTechCirclePage} from '@/pages/MyTechCircle';
 import {DashboardPage} from '@/pages/Dashboard';
 import {ExplorePage} from '@/pages/Explore';
 import {ClassroomPage} from '@/pages/Classroom';
@@ -16,7 +18,15 @@ import {FriendRequestsPage} from '@/pages/friendzone/FriendRequestsPage';
 import {MyFriendsPage} from '@/pages/friendzone/MyFriendsPage';
 import {FriendChatsPage} from '@/pages/friendzone/FriendChatsPage';
 import {FriendNotificationsPage} from '@/pages/friendzone/FriendNotificationsPage';
+import {TechCategoryPage} from '@/pages/TechCategory';
 import {AppLayout} from '@/layouts/AppLayout';
+import {AdminLayout} from '@/layouts/AdminLayout';
+import {RequireRole} from '@/components/admin/RequireRole';
+import {AnalyticsPage} from '@/pages/admin/AnalyticsPage';
+import {UsersPage} from '@/pages/admin/UsersPage';
+import {ClassesPage} from '@/pages/admin/ClassesPage';
+import {ApprovalsPage} from '@/pages/admin/ApprovalsPage';
+import {SettingsPage as AdminSettingsPage} from '@/pages/admin/SettingsPage';
 import {useAuthStore} from '@/store/authStore';
 
 const LoadingScreen = () => (
@@ -79,6 +89,13 @@ const RequireOnboarding = ({children}: {children: ReactNode}) => {
   return <>{children}</>;
 };
 
+const DefaultRedirect = () => {
+  const user = useAuthStore((state) => state.user);
+  // Admins go to admin panel, regular users to dashboard
+  const redirectPath = (user?.role === 'admin' || user?.role === 'superadmin') ? '/admin' : '/dashboard';
+  return <Navigate to={redirectPath} replace />;
+};
+
 export default function App() {
   // Version indicator - helps verify new builds are loaded
   useEffect(() => {
@@ -117,7 +134,7 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<DefaultRedirect />} />
             <Route 
               path="dashboard" 
               element={
@@ -127,10 +144,27 @@ export default function App() {
               } 
             />
             <Route 
+              path="community-hangout" 
+              element={
+                <RequireOnboarding>
+                  <CommunityHangoutPage />
+                </RequireOnboarding>
+              } 
+            />
+            <Route 
+              path="my-tech-circle" 
+              element={
+                <RequireOnboarding>
+                  <MyTechCirclePage />
+                </RequireOnboarding>
+              } 
+            />
+            {/* Legacy route - redirect to community hangout */}
+            <Route 
               path="messages" 
               element={
                 <RequireOnboarding>
-                  <ChatPage />
+                  <Navigate to="/community-hangout" replace />
                 </RequireOnboarding>
               } 
             />
@@ -196,15 +230,36 @@ export default function App() {
                 </RequireOnboarding>
               } 
             />
-            <Route
-              path="admin"
-              element={
-                <RequireAdmin>
-                  <AdminPage />
-                </RequireAdmin>
-              }
-            />
           </Route>
+
+          {/* Admin routes - separate layout, role-protected */}
+          <Route
+            path="admin"
+            element={
+              <RequireAuth>
+                <RequireRole role="admin" allowedRoles={['admin', 'superadmin']}>
+                  <AdminLayout />
+                </RequireRole>
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Navigate to="/admin/analytics" replace />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="classes" element={<ClassesPage />} />
+            <Route path="approvals" element={<ApprovalsPage />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
+          </Route>
+          
+          {/* Legacy admin route - redirect to new admin panel */}
+          <Route 
+            path="admin-old" 
+            element={
+              <RequireOnboarding>
+                <AdminPage />
+              </RequireOnboarding>
+            } 
+          />
         </Routes>
       </Suspense>
     </BrowserRouter>
@@ -229,8 +284,10 @@ const AuthPage = ({component}: {component: ReactNode}) => {
   
   // Only redirect if both user and token exist
   if (user && accessToken) {
-    console.log('[AuthPage] User already authenticated, redirecting to dashboard');
-    return <Navigate to="/dashboard" replace />;
+    // Admins should go to admin panel, regular users to dashboard
+    const redirectPath = (user.role === 'admin' || user.role === 'superadmin') ? '/admin' : '/dashboard';
+    console.log('[AuthPage] User already authenticated, redirecting to', redirectPath);
+    return <Navigate to={redirectPath} replace />;
   }
   return component;
 };

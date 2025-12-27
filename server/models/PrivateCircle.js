@@ -1,5 +1,21 @@
 import mongoose from 'mongoose';
 
+const memberSchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    required: true,
+  },
+  role: {
+    type: String,
+    enum: ['admin', 'member'],
+    default: 'member',
+  },
+  joinedAt: {
+    type: Date,
+    default: Date.now,
+  },
+}, { _id: false });
+
 const messageSchema = new mongoose.Schema(
   {
     messageId: {
@@ -7,12 +23,7 @@ const messageSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    groupId: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    userId: {
+    senderId: {
       type: String,
       required: true,
     },
@@ -24,7 +35,6 @@ const messageSchema = new mongoose.Schema(
       type: String,
       enum: ['text', 'emoji', 'image', 'file', 'audio'],
       default: 'text',
-      index: true,
     },
     message: {
       type: String,
@@ -55,15 +65,6 @@ const messageSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    isArchived: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-    archivedAt: {
-      type: Date,
-      default: null,
-    },
     reactions: {
       type: Map,
       of: [String],
@@ -77,9 +78,9 @@ const messageSchema = new mongoose.Schema(
   { _id: false }
 );
 
-const techGroupSchema = new mongoose.Schema(
+const privateCircleSchema = new mongoose.Schema(
   {
-    groupId: {
+    circleId: {
       type: String,
       required: true,
       unique: true,
@@ -90,58 +91,37 @@ const techGroupSchema = new mongoose.Schema(
       required: true,
       trim: true,
       minlength: 2,
+      maxlength: 100,
     },
     description: {
       type: String,
       trim: true,
-      default: '',
       maxlength: 280,
-    },
-    type: {
-      type: String,
-      enum: ['community', 'classroom'],
-      default: 'community',
-      index: true,
+      default: '',
     },
     createdBy: {
       type: String,
       required: true,
+      index: true,
     },
     members: {
-      type: [String],
+      type: [memberSchema],
       default: [],
-    },
-    admins: {
-      type: [String],
-      default: [],
-    },
-    joinRequests: {
-      type: [
-        {
-          requestId: { type: String, required: true, unique: true },
-          userId: { type: String, required: true },
-          username: { type: String, default: '' },
-          answers: { type: mongoose.Schema.Types.Mixed, default: {} },
-          level: { type: String, default: '' },
-          status: {
-            type: String,
-            enum: ['pending', 'approved', 'declined'],
-            default: 'pending',
-          },
-          createdAt: { type: Date, default: Date.now },
-          updatedAt: { type: Date, default: Date.now },
-          decidedAt: { type: Date, default: null },
-          decidedBy: { type: String, default: null },
+      validate: {
+        validator: function (v) {
+          return v.length >= 1; // At least creator
         },
-      ],
-      default: [],
+        message: 'Circle must have at least one member',
+      },
+    },
+    type: {
+      type: String,
+      enum: ['private-circle'],
+      default: 'private-circle',
+      index: true,
     },
     messages: {
       type: [messageSchema],
-      default: [],
-    },
-    topics: {
-      type: [String],
       default: [],
     },
     createdAt: {
@@ -155,15 +135,19 @@ const techGroupSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: 'techgroups',
+    collection: 'privatecircles',
   }
 );
 
-techGroupSchema.pre('save', function handleTimestamps(next) {
+// Indexes
+privateCircleSchema.index({ createdBy: 1, type: 1 });
+privateCircleSchema.index({ 'members.userId': 1 });
+
+// Pre-save hook
+privateCircleSchema.pre('save', function (next) {
   this.updatedAt = new Date();
   next();
 });
 
-export default mongoose.model('TechGroup', techGroupSchema);
-
+export default mongoose.model('PrivateCircle', privateCircleSchema);
 

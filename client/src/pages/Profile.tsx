@@ -7,13 +7,29 @@ import {type SocialLink, type User} from '@/types';
 export const ProfilePage = () => {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
-  const [bio, setBio] = useState(user?.bio ?? '');
-  const [links, setLinks] = useState<SocialLink[]>(user?.socialLinks ?? []);
+  const [bio, setBio] = useState(user?.bio ?? user?.onboardingAnswers?.bio ?? '');
+  const [links, setLinks] = useState<SocialLink[]>(user?.socialLinks ?? user?.onboardingAnswers?.socialLinks ?? []);
   const {data: me} = useQuery({
     queryKey: ['me'],
     queryFn: async () => {
       const {data} = await api.get<User>(endpoints.auth.me);
+      // Extract bio and socialLinks from onboardingAnswers if needed
+      if (data && !data.bio && data.onboardingAnswers?.bio) {
+        data.bio = data.onboardingAnswers.bio;
+      }
+      if (data && !data.socialLinks && data.onboardingAnswers?.socialLinks) {
+        data.socialLinks = data.onboardingAnswers.socialLinks;
+      }
       return data;
+    },
+    onSuccess: (data) => {
+      // Update local state when data is fetched
+      if (data?.bio || data?.onboardingAnswers?.bio) {
+        setBio(data.bio || data.onboardingAnswers?.bio || '');
+      }
+      if (data?.socialLinks || data?.onboardingAnswers?.socialLinks) {
+        setLinks(data.socialLinks || data.onboardingAnswers?.socialLinks || []);
+      }
     }
   });
 

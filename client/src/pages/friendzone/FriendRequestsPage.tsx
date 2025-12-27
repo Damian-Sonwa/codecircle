@@ -1,5 +1,6 @@
+import {useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {UserPlus, X, Clock} from 'lucide-react';
+import {UserPlus, X, Clock, Loader2, Mail, Search} from 'lucide-react';
 import {api, endpoints} from '@/services/api';
 import {type UserSummary} from '@/types';
 import {useNotificationStore} from '@/store/notificationStore';
@@ -7,27 +8,58 @@ import {useNotificationStore} from '@/store/notificationStore';
 export const FriendRequestsPage = () => {
   const queryClient = useQueryClient();
   const pushNotification = useNotificationStore((state) => state.push);
+  const [searchInput, setSearchInput] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   // Fetch friends data (includes requests)
   const {data, isLoading} = useQuery({
     queryKey: ['friends'],
     queryFn: async () => {
-      const {data} = await api.get<{friends: UserSummary[]; requests: UserSummary[]}>(endpoints.users.friends);
+      const {data} = await api.get<{
+        friends: UserSummary[];
+        friendRequests: UserSummary[];
+        sentFriendRequests: UserSummary[];
+      }>(endpoints.users.friends);
       return data;
     }
   });
 
-  // Fetch outgoing requests (sent by current user)
-  // Note: This might need a new endpoint. For now, we'll use a placeholder approach
-  const {data: outgoingData} = useQuery({
-    queryKey: ['outgoing-requests'],
-    queryFn: async () => {
-      // TODO: Create endpoint for outgoing requests
-      // For now, return empty array
-      return [] as UserSummary[];
+  const sendRequestMutation = useMutation({
+    mutationFn: async (identifier: string) => {
+      return api.post(endpoints.friends.request, {
+        targetUsername: identifier.includes('@') ? undefined : identifier,
+        targetEmail: identifier.includes('@') ? identifier : undefined,
+      });
     },
-    enabled: false // Disabled until endpoint is created
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ['friends']});
+      setSearchInput('');
+      pushNotification({
+        id: `request-sent-${Date.now()}`,
+        title: 'Friend request sent',
+        message: 'Your friend request has been sent',
+      });
+    },
+    onError: (error: any) => {
+      pushNotification({
+        id: `request-error-${Date.now()}`,
+        title: 'Failed to send request',
+        message: error.response?.data?.error || 'Could not send friend request',
+        type: 'error',
+      });
+    },
   });
+
+  const handleSendRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchInput.trim()) return;
+    setIsSearching(true);
+    try {
+      await sendRequestMutation.mutateAsync(searchInput.trim());
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const respondMutation = useMutation({
     mutationFn: ({requesterId, accept}: {requesterId: string; accept: boolean}) =>
@@ -44,8 +76,7 @@ export const FriendRequestsPage = () => {
 
   const cancelRequestMutation = useMutation({
     mutationFn: (targetUserId: string) => {
-      // TODO: Create endpoint to cancel outgoing request
-      return api.delete(`/friends/request/${targetUserId}`);
+      return api.delete(`/api/friends/request/${targetUserId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ['outgoing-requests']});
@@ -77,11 +108,54 @@ export const FriendRequestsPage = () => {
     );
   }
 
-  const incomingRequests = data?.requests ?? [];
-  const outgoingRequests = outgoingData ?? [];
+  const incomingRequests = data?.friendRequests ?? [];
+  const outgoingRequests = data?.sentFriendRequests ?? [];
 
   return (
     <div className="space-y-6 sm:space-y-8">
+      {/* Add Friend Form */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 text-primaryTo" />
+          <h2 className="text-lg sm:text-xl font-semibold text-white">Add Friend</h2>
+        </div>
+        <form onSubmit={handleSendRequest} className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Username or email address"
+                className="w-full rounded-full border border-white/10 bg-slate-900/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primaryTo"
+                disabled={isSearching || sendRequestMutation.isPending}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isSearching || sendRequestMutation.isPending || !searchInput.trim()}
+              className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-6 py-2.5 text-sm font-semibold text-white shadow-lift transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {(isSearching || sendRequestMutation.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4" />
+                  Send Request
+                </>
+              )}
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-slate-400">
+            Enter a username or email address to send a friend request
+          </p>
+        </form>
+      </section>
       {/* Incoming Requests */}
       <section>
         <div className="mb-4 flex items-center gap-2">
@@ -124,14 +198,14 @@ export const FriendRequestsPage = () => {
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <button
-                    onClick={() => handleAccept(request._id)}
+                    onClick={() => handleAccept(request._id || request.userId)}
                     disabled={respondMutation.isPending}
                     className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:scale-105 disabled:opacity-50"
                   >
                     Accept
                   </button>
                   <button
-                    onClick={() => handleDecline(request._id)}
+                    onClick={() => handleDecline(request._id || request.userId)}
                     disabled={respondMutation.isPending}
                     className="flex-1 sm:flex-initial rounded-full border border-white/10 bg-slate-900/60 px-4 sm:px-5 py-2 text-xs sm:text-sm text-slate-300 transition hover:border-rose-500/50 hover:text-rose-400 disabled:opacity-50"
                   >
@@ -182,7 +256,7 @@ export const FriendRequestsPage = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleCancel(request._id)}
+                  onClick={() => handleCancel(request._id || request.userId)}
                   disabled={cancelRequestMutation.isPending}
                   className="w-full sm:w-auto rounded-full border border-white/10 bg-slate-900/60 px-4 sm:px-5 py-2 text-xs sm:text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:opacity-50 flex items-center justify-center gap-2"
                 >

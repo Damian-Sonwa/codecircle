@@ -22,10 +22,16 @@ import passport from './config/passport.js';
 import User from './models/User.js';
 import TechGroup from './models/TechGroup.js';
 import PrivateChat from './models/PrivateChat.js';
+import Friendship from './models/Friendship.js';
+import PrivateConversation from './models/PrivateConversation.js';
+import PrivateCircle from './models/PrivateCircle.js';
 import TrainingRequest from './models/TrainingRequest.js';
 import AdminLog from './models/AdminLog.js';
 import Violation from './models/Violation.js';
 import ClassroomRequest from './models/ClassroomRequest.js';
+import LiveSessionApplication from './models/LiveSessionApplication.js';
+import GroupAssessmentAttempt from './models/GroupAssessmentAttempt.js';
+import AssessmentQuestion from './models/AssessmentQuestion.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -494,39 +500,98 @@ const ensureSeedAdmins = async () => {
 };
 
 const serializeUserSummary = (user, extras = {}) => ({
-  userId: user.userId,
+  _id: user.userId, // Map userId to _id for frontend compatibility
+  userId: user.userId, // Keep userId for backend compatibility
   username: user.username,
   online: user.online,
   lastSeen: user.lastSeen,
   ...extras,
 });
 
-const buildFriendPayload = async (userDoc) => {
-  const friendIds = userDoc.friends || [];
-  const incomingIds = userDoc.friendRequests || [];
-  const outgoingIds = userDoc.sentFriendRequests || [];
+// Helper to build friend payload using Friendship model
+const buildFriendPayload = async (userId) => {
+  try {
+    // Get accepted friendships (where user is requester or recipient)
+    const acceptedFriendships = await Friendship.find({
+      $or: [{ requesterId: userId }, { recipientId: userId }],
+      status: 'accepted',
+    }).lean();
 
-  const [friendDocs, incomingDocs, outgoingDocs] = await Promise.all([
-    friendIds.length
-      ? User.find({ userId: { $in: friendIds } }).select('userId username online lastSeen')
-      : [],
-    incomingIds.length
-      ? User.find({ userId: { $in: incomingIds } }).select('userId username online lastSeen')
-      : [],
-    outgoingIds.length
-      ? User.find({ userId: { $in: outgoingIds } }).select('userId username online lastSeen')
-      : [],
-  ]);
+    // Get pending friendships where user is recipient (incoming requests)
+    const incomingFriendships = await Friendship.find({
+      recipientId: userId,
+      status: 'pending',
+    }).lean();
 
-  return {
-    friends: friendDocs.map((doc) => serializeUserSummary(doc, { status: 'accepted' })),
-    incomingRequests: incomingDocs.map((doc) =>
-      serializeUserSummary(doc, { status: 'pending' })
-    ),
-    outgoingRequests: outgoingDocs.map((doc) =>
-      serializeUserSummary(doc, { status: 'pending' })
-    ),
-  };
+    // Get pending friendships where user is requester (outgoing requests)
+    const outgoingFriendships = await Friendship.find({
+      requesterId: userId,
+      status: 'pending',
+    }).lean();
+
+    // Extract friend user IDs
+    const friendIds = acceptedFriendships.map((f) =>
+      f.requesterId === userId ? f.recipientId : f.requesterId
+    );
+    const incomingIds = incomingFriendships.map((f) => f.requesterId);
+    const outgoingIds = outgoingFriendships.map((f) => f.recipientId);
+
+    // Fetch user documents
+    const [friendDocs, incomingDocs, outgoingDocs] = await Promise.all([
+      friendIds.length
+        ? User.find({ userId: { $in: friendIds } }).select('userId username online lastSeen').lean()
+        : [],
+      incomingIds.length
+        ? User.find({ userId: { $in: incomingIds } }).select('userId username online lastSeen').lean()
+        : [],
+      outgoingIds.length
+        ? User.find({ userId: { $in: outgoingIds } }).select('userId username online lastSeen').lean()
+        : [],
+    ]);
+
+    return {
+      friends: friendDocs.map((doc) => serializeUserSummary(doc, { status: 'accepted' })),
+      incomingRequests: incomingDocs.map((doc) =>
+        serializeUserSummary(doc, { status: 'pending' })
+      ),
+      outgoingRequests: outgoingDocs.map((doc) =>
+        serializeUserSummary(doc, { status: 'pending' })
+      ),
+    };
+  } catch (error) {
+    console.error('[buildFriendPayload] Error:', error);
+    return { friends: [], incomingRequests: [], outgoingRequests: [] };
+  }
+};
+
+// Helper to create private conversation when friendship is accepted
+const createPrivateConversation = async (requesterId, recipientId, friendshipId) => {
+  try {
+    // Sort IDs to ensure consistent conversationId
+    const [userA, userB] = [requesterId, recipientId].sort();
+    const conversationId = `friend-${userA}-${userB}`;
+
+    // Check if conversation already exists
+    let conversation = await PrivateConversation.findOne({ conversationId });
+    if (conversation) {
+      return conversation;
+    }
+
+    // Create new private conversation
+    conversation = new PrivateConversation({
+      conversationId,
+      participants: [userA, userB],
+      type: 'friend',
+      friendshipId,
+    });
+
+    await conversation.save();
+    console.log(`[createPrivateConversation] Created conversation ${conversationId} for friendship ${friendshipId}`);
+    return conversation;
+  } catch (error) {
+    console.error('[createPrivateConversation] Error:', error);
+    throw error;
+  }
 };
 
 const findUserById = async (userId) => User.findOne({ userId });
@@ -764,6 +829,397 @@ const getChatId = (userId1, userId2) => {
   return [userId1, userId2].sort().join('-');
 };
 
+// Helper function to find tech group by slug (groupId or name) - normalized
+const findTechGroupBySlug = async (slug) => {
+  if (!slug || !slug.trim()) return null;
+  const normalizedSlug = slug.toLowerCase().trim();
+  
+  // Try groupId first (exact match, case-insensitive)
+  let group = await TechGroup.findOne({ 
+    groupId: { $regex: new RegExp(`^${normalizedSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+  });
+  if (group) {
+    console.log(`[findTechGroupBySlug] Found by groupId: ${group.groupId}`);
+    return group;
+  }
+  
+  // Try by name (case-insensitive, partial match)
+  group = await TechGroup.findOne({ 
+    name: { $regex: new RegExp(normalizedSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+  });
+  if (group) {
+    console.log(`[findTechGroupBySlug] Found by name: ${group.name}`);
+    return group;
+  }
+  
+  // Try creating slug from name and matching
+  const allGroups = await TechGroup.find({}).lean();
+  for (const g of allGroups) {
+    const nameSlug = (g.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const groupIdSlug = (g.groupId || '').toLowerCase();
+    if (nameSlug === normalizedSlug || groupIdSlug === normalizedSlug) {
+      console.log(`[findTechGroupBySlug] Found by slug match: ${g.name} (${g.groupId})`);
+      return await TechGroup.findOne({ groupId: g.groupId });
+    }
+  }
+  
+  console.warn(`[findTechGroupBySlug] No group found for slug: ${normalizedSlug}`);
+  return null;
+};
+
+// Assessment questions data (skill-specific, comprehensive question bank)
+// Each skill has at least 10+ questions across all levels
+const ASSESSMENT_QUESTIONS = {
+  'cybersecurity': {
+    'Beginner': [
+      { id: 'cybersecurity-beginner-1', question: 'What is the primary goal of cybersecurity?', options: ['To install hardware firewalls', 'To protect systems, networks, and data from attacks', 'To improve internet speed', 'To automate backups'] },
+      { id: 'cybersecurity-beginner-2', question: 'Which of the following best describes phishing?', options: ['Testing network performance', 'Tricking users into revealing sensitive information', 'Encrypting files for secure storage', 'Scanning ports on a server'] },
+      { id: 'cybersecurity-beginner-3', question: 'What does MFA stand for?', options: ['Multi-Factor Authentication', 'Managed Firewall Application', 'Malware Filtering Algorithm', 'Multi-File Archive'] },
+      { id: 'cybersecurity-beginner-4', question: 'A strong password should include:', options: ['Only lowercase letters', 'Personal information', 'A mix of characters, numbers, and symbols', 'The word "password"'] },
+      { id: 'cybersecurity-beginner-5', question: 'Which device often acts as the first line of defense on a network?', options: ['Router', 'Switch', 'Firewall', 'Printer'] },
+      { id: 'cybersecurity-beginner-6', question: 'What is malware?', options: ['Authorized software updates', 'Malicious software designed to harm', 'Network monitoring tools', 'Encrypted traffic'] },
+      { id: 'cybersecurity-beginner-7', question: 'Which of the following is a common sign of a phishing email?', options: ['Personalized greeting and correct domain', 'Unexpected attachments and urgent language', 'Delivered from a known contact', 'Contains company logo and signature'] },
+      { id: 'cybersecurity-beginner-8', question: 'VPN helps protect your privacy by:', options: ['Blocking all ads', 'Creating an encrypted tunnel for data traffic', 'Duplicating your network', 'Deleting cookies automatically'] },
+      { id: 'cybersecurity-beginner-9', question: 'Why are software updates important for security?', options: ['They increase screen brightness', 'They patch known vulnerabilities', 'They reduce internet usage', 'They remove all logs'] },
+      { id: 'cybersecurity-beginner-10', question: 'Which type of malware locks data and demands payment?', options: ['Spyware', 'Ransomware', 'Adware', 'Botnet'] },
+    ],
+    'Intermediate': [
+      { id: 'cybersecurity-intermediate-1', question: 'What does the CIA triad stand for in cybersecurity?', options: ['Confidentiality, Integrity, Availability', 'Control, Identification, Authentication', 'Compliance, Inspection, Analysis', 'Confidentiality, Investigation, Audit'] },
+      { id: 'cybersecurity-intermediate-2', question: 'Which tool is commonly used for network intrusion detection?', options: ['Wireshark', 'Nmap', 'Snort', 'Burp Suite'] },
+      { id: 'cybersecurity-intermediate-3', question: 'What is the purpose of a SIEM platform?', options: ['Coordinate remote teams', 'Aggregate and analyze security logs', 'Provide user training modules', 'Compress backup archives'] },
+      { id: 'cybersecurity-intermediate-4', question: 'A zero-day vulnerability is best described as:', options: ['A vulnerability discovered on day zero of development', 'A vulnerability with a patch released', 'A previously unknown vulnerability without a fix', 'A vulnerability used only in theory'] },
+      { id: 'cybersecurity-intermediate-5', question: 'What is lateral movement in an attack chain?', options: ['The initial exploitation of a network', 'Moving across systems to gain broader access', 'Deleting traces after an attack', 'Scanning external ports only'] },
+      { id: 'cybersecurity-intermediate-6', question: 'Which encryption method uses one key for encryption and decryption?', options: ['Asymmetric encryption', 'Quantum encryption', 'Symmetric encryption', 'Homomorphic encryption'] },
+      { id: 'cybersecurity-intermediate-7', question: 'What is the main function of a honeypot?', options: ['To accelerate traffic routing', 'To entice attackers and study their behavior', 'To encrypt database tables', 'To provide redundancy for servers'] },
+      { id: 'cybersecurity-intermediate-8', question: 'Which framework helps align security controls with NIST guidance?', options: ['CIS Controls', 'ISO 9001', 'PMBOK', 'COBIT Lite'] },
+      { id: 'cybersecurity-intermediate-9', question: 'What does EDR stand for?', options: ['Endpoint Detection and Response', 'Enterprise Data Repository', 'Encrypted Data Relay', 'External Defense Ring'] },
+      { id: 'cybersecurity-intermediate-10', question: 'Which attack involves exploiting trust between two systems?', options: ['DDoS', 'Man-in-the-middle', 'Brute force', 'SQL Injection'] },
+    ],
+    'Professional': [
+      { id: 'cybersecurity-professional-1', question: 'Which technique best supports threat hunting at scale?', options: ['Manual log review in each system', 'Automated behavior analytics with hypothesis-driven investigation', 'Random port blocking', 'Disabling user accounts weekly'] },
+      { id: 'cybersecurity-professional-2', question: 'What is the MITRE ATT&CK framework used for?', options: ['Documenting software licenses', 'Cataloging adversary tactics and techniques', 'Monitoring physical security', 'Scheduling patch windows'] },
+      { id: 'cybersecurity-professional-3', question: 'Which standard is most relevant for establishing an ISMS?', options: ['ISO 27001', 'SOC 2 Type I', 'PCI DSS', 'GDPR'] },
+      { id: 'cybersecurity-professional-4', question: 'When leading an incident response, which phase comes after containment?', options: ['Preparation', 'Eradication and recovery', 'Lessons learned', 'Detection and analysis'] },
+      { id: 'cybersecurity-professional-5', question: 'What is purple teaming?', options: ['A form of management training', 'Collaboration between red and blue teams to improve defenses', 'A compliance certification', 'A supply chain security initiative'] },
+      { id: 'cybersecurity-professional-6', question: 'Which control best mitigates privilege escalation?', options: ['Open SSH access to all users', 'Enforcing least privilege with just-in-time access', 'Disabling MFA for admins', 'Sharing admin passwords verbally'] },
+      { id: 'cybersecurity-professional-7', question: 'How does threat intelligence feed into SOC operations?', options: ['It replaces the need for monitoring tools', 'It provides context to enrich alerts and guide proactive defense', 'It is stored for audit purposes only', 'It is shared only with executives'] },
+      { id: 'cybersecurity-professional-8', question: 'Which approach helps validate security posture against advanced threats?', options: ['Annual antivirus update', 'Ad-hoc penetration tests with no scope', 'Continuous red team exercises and breach simulations', 'Weekly password rotation reminders'] },
+      { id: 'cybersecurity-professional-9', question: 'What is an effective way to manage third-party risk?', options: ['Rely on vendor statements alone', 'Implement a vendor risk management program with continuous monitoring', 'Disable vendor access completely', 'Sign NDAs without assessments'] },
+      { id: 'cybersecurity-professional-10', question: 'Which metric best evaluates SOC efficiency?', options: ['Number of endpoints connected', 'Mean time to detect and respond (MTTD/MTTR)', 'Total internet bandwidth', 'Number of blocked ports'] },
+    ],
+  },
+  'fullstack': {
+    'Beginner': [
+      { id: 'fullstack-beginner-1', question: 'What is the primary role of a full-stack developer?', options: ['Only frontend development', 'Only backend development', 'Both frontend and backend development', 'Database administration only'] },
+      { id: 'fullstack-beginner-2', question: 'Which HTTP method is used to create new resources?', options: ['GET', 'POST', 'PUT', 'DELETE'] },
+      { id: 'fullstack-beginner-3', question: 'What is REST?', options: ['A database type', 'An architectural style for web services', 'A programming language', 'A frontend framework'] },
+      { id: 'fullstack-beginner-4', question: 'What does HTML provide in a web page?', options: ['Styling rules', 'Database queries', 'Structure and content', 'Server routing'] },
+      { id: 'fullstack-beginner-5', question: 'Which language primarily styles web components?', options: ['Java', 'CSS', 'Python', 'SQL'] },
+      { id: 'fullstack-beginner-6', question: 'What does API stand for?', options: ['Application Programming Interface', 'Automated Processing Index', 'Active Protocol Instance', 'Application Policy Integration'] },
+      { id: 'fullstack-beginner-7', question: 'Which HTTP method is used to retrieve data?', options: ['GET', 'POST', 'DELETE', 'PATCH'] },
+      { id: 'fullstack-beginner-8', question: 'What is a responsive layout?', options: ['A layout that adapts to various screen sizes', 'A layout that loads fastest', 'A layout for servers only', 'A layout without CSS'] },
+      { id: 'fullstack-beginner-9', question: 'Which tool can bundle JavaScript modules?', options: ['Webpack', 'Git', 'Docker', 'Babel'] },
+      { id: 'fullstack-beginner-10', question: 'What is a component in modern frontend frameworks?', options: ['A standalone piece of UI with behavior', 'A database table', 'A CSS class', 'A REST endpoint'] },
+    ],
+    'Intermediate': [
+      { id: 'fullstack-intermediate-1', question: 'What does CORS enable in web applications?', options: ['Cross-origin resource sharing', 'Compression of response streams', 'Caching of static assets', 'Creation of server logs'] },
+      { id: 'fullstack-intermediate-2', question: 'Which pattern helps manage global state in React?', options: ['Flux/Redux', 'MVC', 'Observer', 'Singleton'] },
+      { id: 'fullstack-intermediate-3', question: 'What is server-side rendering (SSR)?', options: ['Rendering pages on the server before sending them to the client', 'Executing scripts on the client only', 'Rendering images as SVG', 'Encrypting client requests'] },
+      { id: 'fullstack-intermediate-4', question: 'How do you secure REST endpoints?', options: ['Implement authentication, authorization, and input validation', 'Disable HTTPS', 'Use only GET requests', 'Open all ports'] },
+      { id: 'fullstack-intermediate-5', question: 'Which database concept ensures data consistency across transactions?', options: ['ACID properties', 'CRUD', 'JSON schemas', 'Graph traversal'] },
+      { id: 'fullstack-intermediate-6', question: 'What is containerization used for?', options: ['Packaging applications with dependencies into isolated environments', 'Designing UI components', 'Improving CSS animations', 'Documenting user stories'] },
+      { id: 'fullstack-intermediate-7', question: 'Which tool manages infrastructure as code?', options: ['Terraform', 'Webpack', 'Sass', 'Redux Toolkit'] },
+      { id: 'fullstack-intermediate-8', question: 'What does GraphQL provide compared to REST?', options: ['Flexible queries allowing clients to request specific data', 'Faster network speed', 'Automatic caching only', 'No need for backend'] },
+      { id: 'fullstack-intermediate-9', question: 'Which practice ensures automated testing on every commit?', options: ['Continuous Integration', 'Waterfall', 'Code review', 'Branching'] },
+      { id: 'fullstack-intermediate-10', question: 'What is a microservice architecture?', options: ['Collection of small services communicating over APIs', 'Single monolithic application', 'Frontend-only solution', 'Batch processing script'] },
+    ],
+    'Professional': [
+      { id: 'fullstack-professional-1', question: 'Which strategy improves performance in large-scale React apps?', options: ['Using React Query or SWR for data caching and background updates', 'Writing inline styles only', 'Disabling memoization', 'Avoiding code splitting'] },
+      { id: 'fullstack-professional-2', question: 'How can you ensure observability in distributed systems?', options: ['Implement tracing, metrics, and logs with correlation IDs', 'Rely on manual monitoring', 'Increase server hardware only', 'Disable logs in production'] },
+      { id: 'fullstack-professional-3', question: 'What does blue-green deployment achieve?', options: ['Zero-downtime releases by switching traffic between environments', 'Automatic schema migration', 'Security hardening', 'User analytics'] },
+      { id: 'fullstack-professional-4', question: 'Which practice improves API resilience?', options: ['Circuit breakers and retries with exponential backoff', 'Ignoring timeouts', 'Single region deployment', 'Executing all requests synchronously'] },
+      { id: 'fullstack-professional-5', question: 'How do you manage secrets in production apps?', options: ['Use secret managers or vaults with role-based access', 'Store in plain text config', 'Commit to version control', 'Share via email'] },
+      { id: 'fullstack-professional-6', question: 'What is domain-driven design (DDD) used for?', options: ['Model complex business domains through bounded contexts', 'Design UI mockups', 'Increase network bandwidth', 'Automate deployments'] },
+      { id: 'fullstack-professional-7', question: 'Which approach helps scale databases horizontally?', options: ['Sharding and replication', 'Adding more CPU only', 'Using CSV files', 'Cron jobs'] },
+      { id: 'fullstack-professional-8', question: 'How can you ensure accessibility in modern web apps?', options: ['Implement semantic HTML, ARIA labels, and automated accessibility tests', 'Disable keyboard navigation', 'Use images for all text', 'Rely on color only'] },
+      { id: 'fullstack-professional-9', question: 'What is a reasonable strategy for performance budgets?', options: ['Define thresholds for metrics like LCP, FID, and bundle size', 'Increase bundle size gradually', 'Ignore mobile users', 'Disable caching'] },
+      { id: 'fullstack-professional-10', question: 'Which tooling supports container orchestration at scale?', options: ['Kubernetes', 'Jenkins', 'Yarn', 'Sass'] },
+    ],
+  },
+  'frontend': {
+    'Beginner': [
+      { id: 'frontend-beginner-1', question: 'What does HTML stand for?', options: ['HyperText Markup Language', 'High-level Text Management Language', 'HyperText Management Language', 'High-level Markup Language'] },
+      { id: 'frontend-beginner-2', question: 'What is the purpose of CSS?', options: ['To create server-side logic', 'To style and layout web pages', 'To manage databases', 'To handle API requests'] },
+      { id: 'frontend-beginner-3', question: 'What does CSS control on a web page?', options: ['Content structure', 'Server logic', 'Styling and layout', 'Database queries'] },
+      { id: 'frontend-beginner-4', question: 'Which HTML element represents the largest heading?', options: ['<h1>', '<h6>', '<p>', '<header>'] },
+      { id: 'frontend-beginner-5', question: 'What does responsive design ensure?', options: ['Web pages look good on different devices and screen sizes', 'Web pages only work on desktops', 'Pages load without images', 'All text is uppercase'] },
+      { id: 'frontend-beginner-6', question: 'Which property creates space inside an element border?', options: ['Margin', 'Padding', 'Border', 'Display'] },
+      { id: 'frontend-beginner-7', question: 'What is the purpose of alt text on images?', options: ['Improve SEO and accessibility', 'Increase font size', 'Change background color', 'Embed scripts'] },
+      { id: 'frontend-beginner-8', question: 'Which unit is relative to the root font size?', options: ['rem', 'px', 'cm', 'vh'] },
+      { id: 'frontend-beginner-9', question: 'What does flexbox help with?', options: ['Layout alignment and spacing', 'Database connections', 'Server routing', 'Audio playback'] },
+      { id: 'frontend-beginner-10', question: 'Which tool inspects styles in the browser?', options: ['DevTools', 'Task Manager', 'Terminal', 'Paint'] },
+    ],
+    'Intermediate': [
+      { id: 'frontend-intermediate-1', question: 'What is the main advantage of using a component library?', options: ['Consistency and faster UI development', 'Removing CSS entirely', 'Avoiding user input', 'Reducing HTML tags'] },
+      { id: 'frontend-intermediate-2', question: 'Which hook manages state in React components?', options: ['useState', 'useMemo', 'useRef', 'useEffect'] },
+      { id: 'frontend-intermediate-3', question: 'What does code splitting improve?', options: ['Initial load performance', 'CSS specificity', 'Database speed', 'Color contrast'] },
+      { id: 'frontend-intermediate-4', question: 'How do you improve accessibility for custom controls?', options: ['Add ARIA roles and keyboard support', 'Hide from screen readers', 'Disable focus states', 'Use images for text'] },
+      { id: 'frontend-intermediate-5', question: 'Which tool analyzes bundle size?', options: ['webpack-bundle-analyzer', 'ESLint', 'Prettier', 'Jest'] },
+      { id: 'frontend-intermediate-6', question: 'What is hydration in SSR frameworks?', options: ['Attaching event listeners to server-rendered markup', 'Compressing CSS files', 'Rendering WebGL animations', 'Scheduling animation frames'] },
+      { id: 'frontend-intermediate-7', question: 'Which API improves perceived performance during navigation?', options: ['Intersection Observer', 'Geolocation', 'Clipboard', 'WebRTC'] },
+      { id: 'frontend-intermediate-8', question: 'What does CSS-in-JS provide?', options: ['Scoped styles and dynamic theming at runtime', 'Faster SQL queries', 'Static HTML generation', 'Automatic testing'] },
+      { id: 'frontend-intermediate-9', question: 'How do you prevent layout shift for images?', options: ['Reserve space with width and height attributes', 'Load images last', 'Use inline styles only', 'Set overflow: hidden'] },
+      { id: 'frontend-intermediate-10', question: 'What is the purpose of Storybook?', options: ['Develop and preview UI components in isolation', 'Run integration tests', 'Monitor network requests', 'Compile TypeScript'] },
+    ],
+    'Professional': [
+      { id: 'frontend-professional-1', question: 'Which metric measures visual stability in Core Web Vitals?', options: ['CLS', 'LCP', 'FID', 'TTI'] },
+      { id: 'frontend-professional-2', question: 'How can you implement design tokens effectively?', options: ['Centralize CSS variables mapped to semantic values', 'Copy styles into each component manually', 'Store styles in spreadsheets', 'Use inline styles exclusively'] },
+      { id: 'frontend-professional-3', question: 'What approach enables themeable, reusable design systems?', options: ['Composable architecture with style primitives', 'Coupling components to pages', 'Avoiding documentation', 'Using only static designs'] },
+      { id: 'frontend-professional-4', question: 'Which tool audits performance and accessibility automatically?', options: ['Lighthouse CI', 'Git Hooks', 'Mocha', 'Swagger'] },
+      { id: 'frontend-professional-5', question: 'How do you optimize large lists in React?', options: ['Windowing/virtualization with libraries like react-window', 'Render all items at once', 'Disable keys on list items', 'Use tables for everything'] },
+      { id: 'frontend-professional-6', question: 'What is an effective pattern for managing design handoff?', options: ['Shared Figma libraries synced with coded components', 'Emailing screenshots', 'Documenting in PDFs only', 'Having no feedback loop'] },
+      { id: 'frontend-professional-7', question: 'How can you enforce accessible color contrast?', options: ['Automated linting and visual regression tests', 'Manually adjusting each page monthly', 'Removing all colors', 'Lowering opacity of text'] },
+      { id: 'frontend-professional-8', question: 'Which strategy keeps CSS scalable in large apps?', options: ['Adopting utility-first or BEM methodologies with tooling', 'Writing global selectors for everything', 'Avoiding code reviews', 'Inline styling across files'] },
+      { id: 'frontend-professional-9', question: 'What helps manage micro-frontend communication?', options: ['Shared event bus or federated modules', 'Duplicating state across teams', 'Relying on global variables only', 'Merging all bundles manually'] },
+      { id: 'frontend-professional-10', question: 'Which API enables rich animations with high performance?', options: ['Web Animations API', 'Local Storage', 'WebSocket', 'Fetch'] },
+    ],
+  },
+  'backend': {
+    'Beginner': [
+      { id: 'backend-beginner-1', question: 'What is a REST API?', options: ['A style of web services using standard HTTP methods', 'A desktop application', 'A CSS framework', 'An operating system'] },
+      { id: 'backend-beginner-2', question: 'Which HTTP method is idempotent?', options: ['POST', 'PUT', 'PATCH', 'CONNECT'] },
+      { id: 'backend-beginner-3', question: 'What does CRUD stand for?', options: ['Create, Read, Update, Delete', 'Cache, Route, Update, Deploy', 'Compile, Run, Upload, Debug', 'Create, Rollback, Upgrade, Deploy'] },
+      { id: 'backend-beginner-4', question: 'Which database is relational?', options: ['PostgreSQL', 'MongoDB', 'Redis', 'Elasticsearch'] },
+      { id: 'backend-beginner-5', question: 'What is an endpoint?', options: ['A URL that clients can access on an API', 'A database table', 'An HTML page', 'A CSS selector'] },
+      { id: 'backend-beginner-6', question: 'Which tool manages Node.js packages?', options: ['npm', 'Pip', 'Composer', 'Gem'] },
+      { id: 'backend-beginner-7', question: 'What does status code 404 mean?', options: ['Success', 'Resource not found', 'Server error', 'Unauthorized'] },
+      { id: 'backend-beginner-8', question: 'What is middleware in backend frameworks?', options: ['Functions that handle requests before reaching routes', 'A type of database', 'A CSS preprocessor', 'A testing library'] },
+      { id: 'backend-beginner-9', question: 'What is the purpose of environment variables?', options: ['Store configuration securely outside code', 'Style the UI', 'Render templates', 'Compress logs'] },
+      { id: 'backend-beginner-10', question: 'What does JSON stand for?', options: ['JavaScript Object Notation', 'Java Service Object Network', 'Joined SQL Output Name', 'JavaScript Operation Node'] },
+    ],
+    'Intermediate': [
+      { id: 'backend-intermediate-1', question: 'What does ACID ensure in databases?', options: ['Reliable transactions with atomicity, consistency, isolation, durability', 'High availability only', 'Faster queries only', 'Automatic caching'] },
+      { id: 'backend-intermediate-2', question: 'Which pattern helps separate read and write operations?', options: ['CQRS', 'MVC', 'MVVM', 'Repository'] },
+      { id: 'backend-intermediate-3', question: 'What is connection pooling?', options: ['Reusing database connections for efficiency', 'Creating multiple APIs', 'Caching HTTP responses', 'Managing CSS classes'] },
+      { id: 'backend-intermediate-4', question: 'How do you secure APIs with JWT?', options: ['Issue signed tokens and validate them on protected routes', 'Store tokens in plain text', 'Disable HTTPS', 'Share tokens via email'] },
+      { id: 'backend-intermediate-5', question: 'What is rate limiting used for?', options: ['Control the number of requests clients can make', 'Increase server CPU', 'Compress assets', 'Style dashboards'] },
+      { id: 'backend-intermediate-6', question: 'Which tool monitors API performance?', options: ['Prometheus', 'Webpack', 'ESLint', 'Jest'] },
+      { id: 'backend-intermediate-7', question: 'What does gRPC offer compared to REST?', options: ['Binary protocol with contract-based communication', 'Automatic UI generation', 'Graphical dashboards', 'Real-time sockets only'] },
+      { id: 'backend-intermediate-8', question: 'Which database is good for caching key-value pairs?', options: ['Redis', 'PostgreSQL', 'Neo4j', 'SQLite'] },
+      { id: 'backend-intermediate-9', question: 'What is a message queue used for?', options: ['Decouple services by buffering tasks', 'Render HTML templates', 'Run CSS animations', 'Encrypt passwords'] },
+      { id: 'backend-intermediate-10', question: 'Which practice improves security posture of APIs?', options: ['Validation, sanitization, and principle of least privilege', 'Disabling logs', 'Allowing all origins', 'Using HTTP only'] },
+    ],
+    'Professional': [
+      { id: 'backend-professional-1', question: 'How do you design for eventual consistency?', options: ['Accept temporary inconsistencies with compensating actions and sync processes', 'Force all writes synchronously', 'Avoid distributed systems', 'Disable replication'] },
+      { id: 'backend-professional-2', question: 'Which approach supports high-throughput event processing?', options: ['Event sourcing with CQRS', 'Single-threaded processing', 'Synchronous blocking calls', 'Manual file transfers'] },
+      { id: 'backend-professional-3', question: 'What is an effective way to handle database migrations?', options: ['Version-controlled scripts with rollback support', 'Manual SQL execution', 'Dropping tables and recreating', 'Ignoring schema changes'] },
+      { id: 'backend-professional-4', question: 'Which pattern helps manage distributed transactions?', options: ['Saga pattern with compensating actions', 'Two-phase commit always', 'Ignoring failures', 'Single database only'] },
+      { id: 'backend-professional-5', question: 'How do you implement idempotency in APIs?', options: ['Use idempotency keys and idempotent operations', 'Disable caching', 'Allow duplicate requests', 'Use only GET methods'] },
+      { id: 'backend-professional-6', question: 'Which strategy improves database query performance?', options: ['Indexing, query optimization, and connection pooling', 'Running queries sequentially', 'Disabling indexes', 'Using SELECT * always'] },
+      { id: 'backend-professional-7', question: 'What is an effective approach to API versioning?', options: ['URL versioning or header-based versioning with backward compatibility', 'Breaking changes without notice', 'No versioning strategy', 'Changing endpoints randomly'] },
+      { id: 'backend-professional-8', question: 'How do you ensure data consistency in microservices?', options: ['Event-driven architecture with eventual consistency', 'Shared database across services', 'Synchronous calls only', 'No data sharing'] },
+      { id: 'backend-professional-9', question: 'Which practice improves API reliability?', options: ['Retry logic with exponential backoff and circuit breakers', 'Failing fast always', 'No error handling', 'Single retry attempt'] },
+      { id: 'backend-professional-10', question: 'What is an effective way to monitor distributed systems?', options: ['Distributed tracing with correlation IDs and metrics', 'Manual log checking', 'No monitoring', 'Single point monitoring'] },
+    ],
+  },
+  'data-science': {
+    'Beginner': [
+      { id: 'data-science-beginner-1', question: 'What is the primary goal of data science?', options: ['To create websites', 'To extract insights from data', 'To design user interfaces', 'To manage servers'] },
+      { id: 'data-science-beginner-2', question: 'What is the primary goal of data analysis?', options: ['Store data in spreadsheets', 'Extract insights to inform decisions', 'Increase file sizes', 'Disable data collection'] },
+      { id: 'data-science-beginner-3', question: 'Which of the following is a common data format?', options: ['JPEG', 'CSV', 'MP3', 'PSD'] },
+      { id: 'data-science-beginner-4', question: 'What does "cleaning data" mean?', options: ['Deleting all old files', 'Fixing errors and handling missing values', 'Compressing datasets', 'Locking spreadsheets'] },
+      { id: 'data-science-beginner-5', question: 'Which library is popular for data manipulation in Python?', options: ['NumPy', 'Pandas', 'Matplotlib', 'TensorFlow'] },
+      { id: 'data-science-beginner-6', question: 'What is a dataset?', options: ['A single number', 'A structured collection of related data', 'A graph with labels', 'A computer program'] },
+      { id: 'data-science-beginner-7', question: 'What chart would you use to show data distribution?', options: ['Histogram', 'Pie chart', 'Line chart', 'Gantt chart'] },
+      { id: 'data-science-beginner-8', question: 'What is the target variable in supervised learning?', options: ['Input feature', 'Hyperparameter', 'Label to predict', 'Model'] },
+      { id: 'data-science-beginner-9', question: 'Which tool helps visualize data interactively?', options: ['Excel Formula', 'Tableau', 'Notepad', 'Paint'] },
+      { id: 'data-science-beginner-10', question: 'What does bias in data imply?', options: ['Data is perfectly balanced', 'Systematic error affecting results', 'Random noise in data', 'Extra columns in dataset'] },
+    ],
+    'Intermediate': [
+      { id: 'data-science-intermediate-1', question: 'What is the difference between classification and regression?', options: ['Classification predicts categories; regression predicts continuous values', 'Classification is faster than regression', 'Regression works only on images', 'They are the same'] },
+      { id: 'data-science-intermediate-2', question: 'What does cross-validation help evaluate?', options: ['Model performance stability', 'Data loading speed', 'UI usability', 'Cloud deployment cost'] },
+      { id: 'data-science-intermediate-3', question: 'Which metric is suitable for imbalanced classification?', options: ['Accuracy', 'Precision-Recall', 'MAE', 'R-squared'] },
+      { id: 'data-science-intermediate-4', question: 'What is feature engineering?', options: ['Selecting hardware for clusters', 'Creating or transforming input variables to improve models', 'Changing project timelines', 'Encrypting datasets'] },
+      { id: 'data-science-intermediate-5', question: 'Which technique reduces dimensionality?', options: ['PCA', 'Gradient boosting', 'Bagging', 'Bootstrapping'] },
+      { id: 'data-science-intermediate-6', question: 'What is overfitting?', options: ['Model underperforms on training data', 'Model performs well on training but poorly on unseen data', 'Model uses too many features', 'Model runs quickly'] },
+      { id: 'data-science-intermediate-7', question: 'Which algorithm is a clustering method?', options: ['K-Means', 'Logistic Regression', 'XGBoost', 'ARIMA'] },
+      { id: 'data-science-intermediate-8', question: 'What is the role of a confusion matrix?', options: ['Visualize errors in classification', 'Optimize database schemas', 'Encrypt data in transit', 'Manage user access'] },
+      { id: 'data-science-intermediate-9', question: 'Which approach can handle missing data?', options: ['Mean/median imputation', 'Dropping columns always', 'Randomizing values', 'Increasing batch size'] },
+      { id: 'data-science-intermediate-10', question: 'Why use a validation set?', options: ['Tune hyperparameters without leaking test performance', 'Store raw data backups', 'Document experiments', 'Share reports with stakeholders'] },
+    ],
+    'Professional': [
+      { id: 'data-science-professional-1', question: 'What is MLOps primarily concerned with?', options: ['Optimizing user experience', 'Operationalizing machine learning models at scale', 'Designing UI mockups', 'Creating marketing campaigns'] },
+      { id: 'data-science-professional-2', question: 'Which technique helps interpret complex models?', options: ['SHAP values', 'Gradient descent', 'Learning rate schedule', 'Pooling'] },
+      { id: 'data-science-professional-3', question: 'How would you address concept drift?', options: ['Ignore model performance metrics', 'Monitor data distribution and retrain models as needed', 'Increase training epochs indefinitely', 'Disable online learning'] },
+      { id: 'data-science-professional-4', question: 'Which strategy enhances model fairness?', options: ['Oversampling underrepresented groups thoughtfully', 'Randomly removing data', 'Reducing feature count arbitrarily', 'Shortening training time'] },
+      { id: 'data-science-professional-5', question: 'What is an appropriate approach to deploy a model with low downtime?', options: ['Shadow deployment', 'Manual file copy', 'Offline inference only', 'CSV handoff'] },
+      { id: 'data-science-professional-6', question: 'How can you ensure reproducible experiments?', options: ['Version datasets, code, and configurations', 'Use informal documentation', 'Train models only once', 'Store experiments on local desktops'] },
+      { id: 'data-science-professional-7', question: 'Which metric best tracks regression model drift in production?', options: ['ROC-AUC', 'Population stability index', 'Recall', 'BLEU score'] },
+      { id: 'data-science-professional-8', question: 'How do you evaluate ROI of a machine learning initiative?', options: ['Measure business KPIs before and after deployment', 'Compare model size only', 'Estimate based on training accuracy', 'Ask team members to vote'] },
+      { id: 'data-science-professional-9', question: 'What does a data governance program help establish?', options: ['Policies for data quality, ownership, and security', 'User interface guidelines', 'Hardware upgrade cycles', 'Office seating charts'] },
+      { id: 'data-science-professional-10', question: 'Which approach supports scalable feature pipelines?', options: ['Feature stores with streaming support', 'Manual CSV updates', 'Spreadsheet macros', 'Quarterly notebooks run'] },
+    ],
+  },
+  'cloud': {
+    'Beginner': [
+      { id: 'cloud-beginner-1', question: 'What is cloud computing?', options: ['Delivering computing services over the internet', 'Storing data on local hard drives', 'Using only desktop applications', 'Running servers in your office'] },
+      { id: 'cloud-beginner-2', question: 'Which is a major cloud provider?', options: ['AWS', 'Microsoft Office', 'Adobe Photoshop', 'Google Chrome'] },
+      { id: 'cloud-beginner-3', question: 'What does IaaS stand for?', options: ['Infrastructure as a Service', 'Internet as a System', 'Internal Application Server', 'Integrated Access System'] },
+      { id: 'cloud-beginner-4', question: 'What is a virtual machine?', options: ['A software emulation of a physical computer', 'A physical server', 'A database table', 'A CSS file'] },
+      { id: 'cloud-beginner-5', question: 'Which service provides scalable storage?', options: ['Object storage (S3, Blob)', 'Local file system', 'CD-ROM', 'USB drive'] },
+      { id: 'cloud-beginner-6', question: 'What is auto-scaling?', options: ['Automatically adjusting resources based on demand', 'Manual server configuration', 'Static resource allocation', 'Disabling servers'] },
+      { id: 'cloud-beginner-7', question: 'What does CDN stand for?', options: ['Content Delivery Network', 'Central Database Node', 'Cloud Data Network', 'Computer Device Name'] },
+      { id: 'cloud-beginner-8', question: 'Which deployment model uses both public and private clouds?', options: ['Hybrid cloud', 'Public cloud only', 'Private cloud only', 'No cloud'] },
+      { id: 'cloud-beginner-9', question: 'What is a load balancer used for?', options: ['Distributing traffic across multiple servers', 'Storing files', 'Rendering web pages', 'Compiling code'] },
+      { id: 'cloud-beginner-10', question: 'Which service provides managed databases?', options: ['RDS, Cosmos DB', 'Local MySQL', 'Excel spreadsheets', 'Text files'] },
+    ],
+    'Intermediate': [
+      { id: 'cloud-intermediate-1', question: 'What is Infrastructure as Code (IaC)?', options: ['Managing infrastructure through code and version control', 'Writing server documentation', 'Manual server setup', 'Using spreadsheets'] },
+      { id: 'cloud-intermediate-2', question: 'Which tool is commonly used for IaC?', options: ['Terraform', 'Word', 'Excel', 'PowerPoint'] },
+      { id: 'cloud-intermediate-3', question: 'What is a serverless function?', options: ['Code that runs without managing servers', 'A physical server', 'A database', 'A CSS file'] },
+      { id: 'cloud-intermediate-4', question: 'What does VPC stand for?', options: ['Virtual Private Cloud', 'Very Powerful Computer', 'Virtual Public Connection', 'Volume Processing Center'] },
+      { id: 'cloud-intermediate-5', question: 'Which practice improves cloud security?', options: ['Identity and Access Management (IAM)', 'Sharing credentials', 'Open ports to all', 'Disabling encryption'] },
+      { id: 'cloud-intermediate-6', question: 'What is container orchestration?', options: ['Managing containerized applications at scale', 'Styling web pages', 'Writing SQL queries', 'Designing UI'] },
+      { id: 'cloud-intermediate-7', question: 'Which service provides managed Kubernetes?', options: ['EKS, AKS, GKE', 'Local Docker', 'VirtualBox', 'VMware'] },
+      { id: 'cloud-intermediate-8', question: 'What is a cloud region?', options: ['A geographic area with data centers', 'A programming language', 'A database type', 'A CSS framework'] },
+      { id: 'cloud-intermediate-9', question: 'Which strategy reduces cloud costs?', options: ['Right-sizing resources and reserved instances', 'Using largest instances always', 'No monitoring', 'Manual scaling'] },
+      { id: 'cloud-intermediate-10', question: 'What is disaster recovery in the cloud?', options: ['Backup and recovery strategies across regions', 'Deleting all data', 'Single region only', 'No backups'] },
+    ],
+    'Professional': [
+      { id: 'cloud-professional-1', question: 'How do you design for multi-region high availability?', options: ['Active-active deployments with data replication', 'Single region only', 'No redundancy', 'Manual failover'] },
+      { id: 'cloud-professional-2', question: 'Which approach improves cloud cost optimization?', options: ['FinOps practices with cost allocation and optimization', 'Ignoring costs', 'Using premium tiers always', 'No monitoring'] },
+      { id: 'cloud-professional-3', question: 'What is a cloud landing zone?', options: ['A secure, scalable cloud foundation', 'A single server', 'A database', 'A CSS file'] },
+      { id: 'cloud-professional-4', question: 'Which practice ensures cloud compliance?', options: ['Policy as Code with automated compliance checks', 'Manual audits only', 'No compliance', 'Ignoring regulations'] },
+      { id: 'cloud-professional-5', question: 'How do you implement zero-trust security in the cloud?', options: ['Verify every request regardless of location', 'Trust all internal traffic', 'Disable authentication', 'Open all ports'] },
+      { id: 'cloud-professional-6', question: 'What is cloud-native architecture?', options: ['Designing for cloud scalability and resilience', 'On-premise only', 'Desktop applications', 'Legacy systems'] },
+      { id: 'cloud-professional-7', question: 'Which strategy improves cloud observability?', options: ['Centralized logging, metrics, and distributed tracing', 'No monitoring', 'Manual log checking', 'Single point monitoring'] },
+      { id: 'cloud-professional-8', question: 'What is a cloud service mesh?', options: ['Infrastructure layer for service-to-service communication', 'A single service', 'A database', 'A CSS framework'] },
+      { id: 'cloud-professional-9', question: 'How do you manage cloud vendor lock-in?', options: ['Multi-cloud strategies and abstraction layers', 'Single vendor only', 'No strategy', 'Manual migration'] },
+      { id: 'cloud-professional-10', question: 'Which approach supports cloud cost forecasting?', options: ['Historical analysis and predictive modeling', 'Guessing costs', 'No forecasting', 'Fixed budgets only'] },
+    ],
+  },
+  'ui/ux': {
+    'Beginner': [
+      { id: 'ui-ux-beginner-1', question: 'What does UX stand for?', options: ['User Experience', 'User XML', 'Universal Exchange', 'User Extension'] },
+      { id: 'ui-ux-beginner-2', question: 'What does UI stand for?', options: ['User Interface', 'User Integration', 'Universal Interface', 'User Input'] },
+      { id: 'ui-ux-beginner-3', question: 'What is a wireframe?', options: ['A low-fidelity layout of a page', 'A high-fidelity design', 'A color palette', 'A font'] },
+      { id: 'ui-ux-beginner-4', question: 'Which tool is popular for UI design?', options: ['Figma', 'Excel', 'Word', 'PowerPoint'] },
+      { id: 'ui-ux-beginner-5', question: 'What is usability testing?', options: ['Testing with real users to improve design', 'Code testing', 'Server testing', 'Database testing'] },
+      { id: 'ui-ux-beginner-6', question: 'What is a persona in UX?', options: ['A fictional representation of a user', 'A real user', 'A design element', 'A color'] },
+      { id: 'ui-ux-beginner-7', question: 'What does accessibility mean in design?', options: ['Designing for users with disabilities', 'Making designs prettier', 'Adding animations', 'Using more colors'] },
+      { id: 'ui-ux-beginner-8', question: 'Which principle improves readability?', options: ['Contrast and typography', 'Using small fonts', 'No spacing', 'Complex layouts'] },
+      { id: 'ui-ux-beginner-9', question: 'What is a design system?', options: ['A collection of reusable components and guidelines', 'A single design', 'A color', 'A font'] },
+      { id: 'ui-ux-beginner-10', question: 'What is the purpose of user research?', options: ['Understanding user needs and behaviors', 'Writing code', 'Managing servers', 'Designing databases'] },
+    ],
+    'Intermediate': [
+      { id: 'ui-ux-intermediate-1', question: 'What is information architecture?', options: ['Organizing and structuring content', 'Writing CSS', 'Managing servers', 'Designing databases'] },
+      { id: 'ui-ux-intermediate-2', question: 'Which method helps understand user journeys?', options: ['User journey mapping', 'Code review', 'Server logs', 'Database queries'] },
+      { id: 'ui-ux-intermediate-3', question: 'What is A/B testing used for?', options: ['Comparing two design variations', 'Writing code', 'Managing servers', 'Designing databases'] },
+      { id: 'ui-ux-intermediate-4', question: 'What is a design token?', options: ['A reusable design value', 'A user', 'A page', 'A color'] },
+      { id: 'ui-ux-intermediate-5', question: 'Which principle improves mobile UX?', options: ['Touch-friendly targets and responsive design', 'Small buttons', 'Complex navigation', 'No optimization'] },
+      { id: 'ui-ux-intermediate-6', question: 'What is micro-interaction?', options: ['Small animations that provide feedback', 'A large animation', 'A page', 'A color'] },
+      { id: 'ui-ux-intermediate-7', question: 'Which tool helps with prototyping?', options: ['Figma, Adobe XD', 'Excel', 'Word', 'PowerPoint'] },
+      { id: 'ui-ux-intermediate-8', question: 'What is the purpose of a style guide?', options: ['Maintaining design consistency', 'Writing code', 'Managing servers', 'Designing databases'] },
+      { id: 'ui-ux-intermediate-9', question: 'What is cognitive load in UX?', options: ['Mental effort required to use an interface', 'Server load', 'Database load', 'Network load'] },
+      { id: 'ui-ux-intermediate-10', question: 'Which practice improves form UX?', options: ['Clear labels, validation, and helpful error messages', 'No labels', 'Complex validation', 'No error messages'] },
+    ],
+    'Professional': [
+      { id: 'ui-ux-professional-1', question: 'What is design thinking?', options: ['A human-centered problem-solving approach', 'A coding methodology', 'A server management technique', 'A database design pattern'] },
+      { id: 'ui-ux-professional-2', question: 'How do you measure UX success?', options: ['User satisfaction, task completion rates, and business metrics', 'Code quality only', 'Server uptime', 'Database size'] },
+      { id: 'ui-ux-professional-3', question: 'What is inclusive design?', options: ['Designing for diverse user needs', 'Designing for one user type', 'Ignoring accessibility', 'No user research'] },
+      { id: 'ui-ux-professional-4', question: 'Which approach improves design collaboration?', options: ['Shared design systems and regular design reviews', 'No collaboration', 'Email only', 'No feedback'] },
+      { id: 'ui-ux-professional-5', question: 'What is the purpose of design ops?', options: ['Streamlining design workflows and tooling', 'Writing code', 'Managing servers', 'Designing databases'] },
+      { id: 'ui-ux-professional-6', question: 'How do you ensure design scalability?', options: ['Modular design systems and component libraries', 'Copying designs', 'No system', 'Manual updates'] },
+      { id: 'ui-ux-professional-7', question: 'What is the role of UX research in product development?', options: ['Informing design decisions with user insights', 'Writing code', 'Managing servers', 'Designing databases'] },
+      { id: 'ui-ux-professional-8', question: 'Which practice improves design handoff?', options: ['Detailed specs and developer collaboration', 'No documentation', 'Email only', 'No communication'] },
+      { id: 'ui-ux-professional-9', question: 'What is service design?', options: ['Designing end-to-end user experiences across touchpoints', 'A single page', 'A color', 'A font'] },
+      { id: 'ui-ux-professional-10', question: 'How do you validate design assumptions?', options: ['User testing and data analysis', 'Guessing', 'No validation', 'Internal opinions only'] },
+    ],
+  },
+  'ai/ml': {
+    'Beginner': [
+      { id: 'ai-ml-beginner-1', question: 'What does AI stand for?', options: ['Artificial Intelligence', 'Automated Integration', 'Advanced Interface', 'Application Interface'] },
+      { id: 'ai-ml-beginner-2', question: 'What does ML stand for?', options: ['Machine Learning', 'Multiple Languages', 'Manual Learning', 'Memory Location'] },
+      { id: 'ai-ml-beginner-3', question: 'What is supervised learning?', options: ['Learning from labeled data', 'Learning without data', 'Learning from unlabeled data', 'Manual programming'] },
+      { id: 'ai-ml-beginner-4', question: 'What is unsupervised learning?', options: ['Finding patterns in unlabeled data', 'Learning from labels', 'Manual programming', 'No learning'] },
+      { id: 'ai-ml-beginner-5', question: 'Which library is popular for machine learning in Python?', options: ['Scikit-learn', 'React', 'Express', 'MongoDB'] },
+      { id: 'ai-ml-beginner-6', question: 'What is a neural network?', options: ['A computing system inspired by biological neural networks', 'A database', 'A CSS framework', 'A server'] },
+      { id: 'ai-ml-beginner-7', question: 'What is training data?', options: ['Data used to teach a model', 'Data for testing', 'Random data', 'No data'] },
+      { id: 'ai-ml-beginner-8', question: 'What is a model in machine learning?', options: ['A mathematical representation learned from data', 'A database', 'A CSS file', 'A server'] },
+      { id: 'ai-ml-beginner-9', question: 'What is prediction in ML?', options: ['Using a model to make forecasts', 'Writing code', 'Managing servers', 'Designing UI'] },
+      { id: 'ai-ml-beginner-10', question: 'What is deep learning?', options: ['Machine learning using neural networks with multiple layers', 'Shallow learning', 'No learning', 'Manual programming'] },
+    ],
+    'Intermediate': [
+      { id: 'ai-ml-intermediate-1', question: 'What is overfitting in machine learning?', options: ['Model performs well on training but poorly on new data', 'Model performs poorly on training', 'Perfect model', 'No model'] },
+      { id: 'ai-ml-intermediate-2', question: 'What is cross-validation?', options: ['Validating model performance across different data splits', 'Single test', 'No validation', 'Manual checking'] },
+      { id: 'ai-ml-intermediate-3', question: 'What is feature selection?', options: ['Choosing relevant input variables', 'Selecting colors', 'Choosing fonts', 'Picking servers'] },
+      { id: 'ai-ml-intermediate-4', question: 'What is a confusion matrix?', options: ['A table showing classification performance', 'A database', 'A CSS file', 'A server'] },
+      { id: 'ai-ml-intermediate-5', question: 'What is gradient descent?', options: ['An optimization algorithm', 'A database', 'A CSS framework', 'A server'] },
+      { id: 'ai-ml-intermediate-6', question: 'What is transfer learning?', options: ['Using a pre-trained model for a new task', 'Training from scratch', 'No learning', 'Manual programming'] },
+      { id: 'ai-ml-intermediate-7', question: 'What is natural language processing?', options: ['Teaching computers to understand human language', 'Writing code', 'Managing servers', 'Designing UI'] },
+      { id: 'ai-ml-intermediate-8', question: 'What is computer vision?', options: ['Teaching computers to interpret visual information', 'Writing code', 'Managing servers', 'Designing UI'] },
+      { id: 'ai-ml-intermediate-9', question: 'What is reinforcement learning?', options: ['Learning through trial and error with rewards', 'Supervised learning', 'Unsupervised learning', 'No learning'] },
+      { id: 'ai-ml-intermediate-10', question: 'What is a hyperparameter?', options: ['A parameter set before training', 'A learned parameter', 'A database', 'A CSS file'] },
+    ],
+    'Professional': [
+      { id: 'ai-ml-professional-1', question: 'What is MLOps?', options: ['Operationalizing machine learning models', 'Writing code', 'Managing servers', 'Designing UI'] },
+      { id: 'ai-ml-professional-2', question: 'What is model interpretability?', options: ['Understanding how models make decisions', 'Ignoring model behavior', 'No understanding', 'Manual analysis'] },
+      { id: 'ai-ml-professional-3', question: 'What is federated learning?', options: ['Training models across decentralized data', 'Single server training', 'No training', 'Manual programming'] },
+      { id: 'ai-ml-professional-4', question: 'What is model drift?', options: ['Model performance degradation over time', 'Perfect model', 'No model', 'Manual model'] },
+      { id: 'ai-ml-professional-5', question: 'What is A/B testing for ML models?', options: ['Comparing model versions in production', 'Single model', 'No testing', 'Manual testing'] },
+      { id: 'ai-ml-professional-6', question: 'What is feature engineering?', options: ['Creating meaningful input variables', 'Selecting colors', 'Choosing fonts', 'Picking servers'] },
+      { id: 'ai-ml-professional-7', question: 'What is ensemble learning?', options: ['Combining multiple models', 'Single model', 'No models', 'Manual models'] },
+      { id: 'ai-ml-professional-8', question: 'What is automated machine learning (AutoML)?', options: ['Automating ML workflow steps', 'Manual ML', 'No ML', 'Guessing'] },
+      { id: 'ai-ml-professional-9', question: 'What is responsible AI?', options: ['Ethical and fair AI practices', 'Unethical AI', 'No ethics', 'Random AI'] },
+      { id: 'ai-ml-professional-10', question: 'What is model versioning?', options: ['Tracking different model versions', 'Single version', 'No versioning', 'Manual versioning'] },
+    ],
+  },
+};
+
+// Extract skill and level from group name (format: "SkillName Level Circle")
+const extractSkillAndLevel = (groupName) => {
+  if (!groupName) return { skill: null, level: null };
+  const name = groupName.trim();
+  // Remove "Circle" suffix if present
+  const cleaned = name.replace(/\s+Circle$/, '').trim();
+  
+  // Match skill and level patterns
+  const skillMap = {
+    'cybersecurity': 'cybersecurity',
+    'data-science': 'data-science',
+    'data science': 'data-science',
+    'fullstack': 'fullstack',
+    'full-stack': 'fullstack',
+    'frontend': 'frontend',
+    'front-end': 'frontend',
+    'backend': 'backend',
+    'back-end': 'backend',
+  };
+  
+  const levels = ['Beginner', 'Intermediate', 'Professional'];
+  
+  let matchedSkill = null;
+  let matchedLevel = null;
+  
+  // Try to find skill
+  for (const [key, value] of Object.entries(skillMap)) {
+    if (cleaned.toLowerCase().includes(key.toLowerCase())) {
+      matchedSkill = value;
+      break;
+    }
+  }
+  
+  // Try to find level
+  for (const level of levels) {
+    if (cleaned.includes(level)) {
+      matchedLevel = level;
+      break;
+    }
+  }
+  
+  return { skill: matchedSkill, level: matchedLevel };
+};
+
 // API base route - defined early to ensure it's accessible before other /api/* routes
 app.get('/api', (req, res) => {
   console.log('[API] GET /api - Request received');
@@ -809,6 +1265,11 @@ app.get('/api', (req, res) => {
         archivedMessages: 'GET /api/tech-groups/:groupId/messages/archived',
         archiveMessage: 'POST /api/tech-groups/:groupId/messages/:messageId/archive'
       },
+      conversations: {
+        getAll: 'GET /api/conversations (auth required) - Aggregates private chats and tech groups',
+        getMessages: 'GET /api/conversations/:conversationId/messages (auth required) - Get messages for a conversation'
+      },
+      classrooms: 'GET /api/classrooms (auth required) - Get all classrooms',
       privateChats: {
         getAll: 'GET /api/private-chats (auth required)',
         getOne: 'GET /api/private-chats/:chatId (auth required)',
@@ -833,6 +1294,7 @@ app.get('/api', (req, res) => {
         delete: 'DELETE /api/training-requests/:requestId (auth required)'
       },
       admin: {
+        analytics: 'GET /api/admin/analytics (admin)',
         users: 'GET /api/admin/users (admin)',
         suspendUser: 'POST /api/admin/users/:userId/suspend (admin)',
         restoreUser: 'POST /api/admin/users/:userId/restore (admin)',
@@ -1143,7 +1605,8 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-app.get('/api/friends', authenticateJWT, async (req, res) => {
+// Helper function to get friends data (used by both /api/friends and /api/users/friends)
+const getFriendsData = async (req, res) => {
   try {
     console.log('[API] GET /api/friends - Request received for user:', req.user?.userId);
     
@@ -1159,13 +1622,70 @@ app.get('/api/friends', authenticateJWT, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const payload = await buildFriendPayload(currentUser);
-    console.log(`[API] GET /api/friends - Returning payload for user: ${currentUser.username}`);
-    res.json(payload);
+    const payload = await buildFriendPayload(req.user.userId);
+    console.log(`[API] GET /api/friends - Returning payload for user: ${req.user.userId}`);
+    // Return in format expected by frontend: { friends, friendRequests, sentFriendRequests }
+    res.json({
+      friends: payload.friends || [],
+      friendRequests: payload.incomingRequests || [],
+      sentFriendRequests: payload.outgoingRequests || []
+    });
   } catch (error) {
     console.error('[API] GET /api/friends - Error:', error);
     // Return empty payload instead of 500 error
     res.json({ friends: [], friendRequests: [], sentFriendRequests: [] });
+  }
+};
+
+app.get('/api/friends', authenticateJWT, getFriendsData);
+app.get('/api/users/friends', authenticateJWT, getFriendsData);
+
+// DELETE /api/friends/request/:targetUserId - Cancel outgoing friend request
+app.delete('/api/friends/request/:targetUserId', authenticateJWT, async (req, res) => {
+  try {
+    const { targetUserId } = req.params;
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'Target user ID is required' });
+    }
+
+    const currentUser = await User.findOne({ userId: req.user.userId });
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Remove from sentFriendRequests array
+    if (Array.isArray(currentUser.sentFriendRequests)) {
+      currentUser.sentFriendRequests = currentUser.sentFriendRequests.filter(id => id !== targetUserId);
+    }
+
+    // Also remove from target user's friendRequests (incoming)
+    const targetUser = await User.findOne({ userId: targetUserId });
+    if (targetUser && Array.isArray(targetUser.friendRequests)) {
+      targetUser.friendRequests = targetUser.friendRequests.filter(id => id !== req.user.userId);
+      await targetUser.save();
+    }
+
+    await currentUser.save();
+
+    // Emit socket event if socket instance exists
+    try {
+      const ioInstance = req.app.get('io');
+      if (ioInstance) {
+        // Emit to all - target user will handle filtering
+        ioInstance.emit('friend:request:cancelled', {
+          fromUserId: req.user.userId,
+          fromUsername: req.user.username,
+          targetUserId
+        });
+      }
+    } catch (socketError) {
+      console.warn('[API] Socket notification failed (non-fatal):', socketError);
+    }
+
+    res.json({ success: true, message: 'Friend request cancelled' });
+  } catch (error) {
+    console.error('[API] DELETE /api/friends/request/:targetUserId - Error:', error);
+    res.status(500).json({ error: 'Failed to cancel friend request' });
   }
 });
 
@@ -1240,16 +1760,22 @@ app.post('/api/onboarding/complete', authenticateJWT, async (req, res) => {
   }
 });
 
+// POST /api/friends/request - Send friend request by username or email
 app.post('/api/friends/request', authenticateJWT, async (req, res) => {
   try {
-    const { targetUsername } = req.body || {};
-    if (!targetUsername || !targetUsername.trim()) {
-      return res.status(400).json({ error: 'Target username is required' });
+    const { targetUsername, targetEmail } = req.body || {};
+    const identifier = targetUsername?.trim() || targetEmail?.trim();
+    
+    if (!identifier) {
+      return res.status(400).json({ error: 'Username or email is required' });
     }
 
-    const normalized = targetUsername.trim();
+    // Find user by username or email
     const targetUser = await User.findOne({
-      username: { $regex: new RegExp(`^${normalized}$`, 'i') },
+      $or: [
+        { username: { $regex: new RegExp(`^${identifier}$`, 'i') } },
+        { email: { $regex: new RegExp(`^${identifier}$`, 'i') } }
+      ],
     });
 
     if (!targetUser) {
@@ -1260,28 +1786,60 @@ app.post('/api/friends/request', authenticateJWT, async (req, res) => {
       return res.status(400).json({ error: 'You cannot add yourself as a friend' });
     }
 
-    const currentUser = await User.findOne({ userId: req.user.userId });
-    if (!currentUser) {
-      return res.status(404).json({ error: 'Current user not found' });
-    }
+    const requesterId = req.user.userId;
+    const recipientId = targetUser.userId;
 
-    const { payload, error } = await sendFriendRequestDocs({
-      currentUser,
-      targetUser,
-      ioInstance: io,
+    // Check if friendship already exists
+    const existingFriendship = await Friendship.findOne({
+      $or: [
+        { requesterId, recipientId },
+        { requesterId: recipientId, recipientId: requesterId }
+      ]
     });
 
-    if (error) {
-      return res.status(400).json({ error });
+    if (existingFriendship) {
+      if (existingFriendship.status === 'accepted') {
+        return res.status(400).json({ error: 'You are already friends' });
+      }
+      if (existingFriendship.status === 'pending') {
+        if (existingFriendship.requesterId === requesterId) {
+          return res.status(400).json({ error: 'Friend request already sent' });
+        } else {
+          return res.status(400).json({ error: 'This user has already sent you a friend request' });
+        }
+      }
     }
 
+    // Create new friendship request
+    const friendship = new Friendship({
+      requesterId,
+      recipientId,
+      status: 'pending',
+    });
+
+    await friendship.save();
+
+    // Emit socket event
+    const targetSocket = userSockets.get(recipientId);
+    if (targetSocket && io) {
+      io.to(targetSocket).emit('friend:request', {
+        userId: requesterId,
+        username: req.user.username,
+      });
+    }
+
+    const payload = await buildFriendPayload(requesterId);
     res.json(payload);
   } catch (error) {
-    console.error('Send friend request error:', error);
+    console.error('[API] POST /api/friends/request - Error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Friend request already exists' });
+    }
     res.status(500).json({ error: 'Unable to send friend request right now.' });
   }
 });
 
+// POST /api/friends/respond - Accept or reject friend request
 app.post('/api/friends/respond', authenticateJWT, async (req, res) => {
   try {
     const { requesterId, action } = req.body || {};
@@ -1290,32 +1848,148 @@ app.post('/api/friends/respond', authenticateJWT, async (req, res) => {
     }
 
     const normalizedAction = action.toLowerCase();
-    if (!['accept', 'decline'].includes(normalizedAction)) {
-      return res.status(400).json({ error: 'Invalid action' });
+    if (!['accept', 'decline', 'reject'].includes(normalizedAction)) {
+      return res.status(400).json({ error: 'Invalid action. Use "accept" or "decline"' });
     }
 
-    const currentUser = await User.findOne({ userId: req.user.userId });
-    const requester = await User.findOne({ userId: requesterId });
+    const recipientId = req.user.userId;
+    const isAccept = normalizedAction === 'accept';
 
-    if (!currentUser || !requester) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const { payload, error } = await respondToFriendRequestDocs({
-      currentUser,
-      requester,
-      action: normalizedAction,
-      ioInstance: io,
+    // Find friendship
+    const friendship = await Friendship.findOne({
+      requesterId,
+      recipientId,
+      status: 'pending',
     });
 
-    if (error) {
-      return res.status(400).json({ error });
+    if (!friendship) {
+      return res.status(404).json({ error: 'No pending friend request found' });
     }
 
+    if (isAccept) {
+      // Accept friendship
+      friendship.status = 'accepted';
+      await friendship.save();
+
+      // Create private conversation
+      try {
+        await createPrivateConversation(requesterId, recipientId, friendship._id);
+      } catch (convError) {
+        console.error('[API] Failed to create private conversation:', convError);
+        // Don't fail the request if conversation creation fails
+      }
+
+      // Emit socket events
+      if (io) {
+        const requesterSocket = userSockets.get(requesterId);
+        if (requesterSocket) {
+          io.to(requesterSocket).emit('friend:request:updated', {
+            userId: recipientId,
+            username: req.user.username,
+            status: 'accepted',
+          });
+        }
+      }
+    } else {
+      // Reject/decline friendship
+      friendship.status = 'rejected';
+      await friendship.save();
+
+      // Emit socket event
+      if (io) {
+        const requesterSocket = userSockets.get(requesterId);
+        if (requesterSocket) {
+          io.to(requesterSocket).emit('friend:request:updated', {
+            userId: recipientId,
+            username: req.user.username,
+            status: 'rejected',
+          });
+        }
+      }
+    }
+
+    const payload = await buildFriendPayload(recipientId);
     res.json(payload);
   } catch (error) {
-    console.error('Respond to friend request error:', error);
+    console.error('[API] POST /api/friends/respond - Error:', error);
     res.status(500).json({ error: 'Unable to process friend request right now.' });
+  }
+});
+
+// POST /api/friends/request/:requesterId/respond - Alternative endpoint (uses URL param, supports accept: boolean)
+app.post('/api/friends/request/:requesterId/respond', authenticateJWT, async (req, res) => {
+  try {
+    const { requesterId } = req.params;
+    const { accept } = req.body || {};
+    
+    if (!requesterId) {
+      return res.status(400).json({ error: 'Requester ID is required' });
+    }
+    
+    if (typeof accept !== 'boolean') {
+      return res.status(400).json({ error: 'Accept (boolean) is required in request body' });
+    }
+
+    const action = accept ? 'accept' : 'decline';
+    const recipientId = req.user.userId;
+
+    // Find friendship
+    const friendship = await Friendship.findOne({
+      requesterId,
+      recipientId,
+      status: 'pending',
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ error: 'No pending friend request found' });
+    }
+
+    if (accept) {
+      // Accept friendship
+      friendship.status = 'accepted';
+      await friendship.save();
+
+      // Create private conversation
+      try {
+        await createPrivateConversation(requesterId, recipientId, friendship._id);
+      } catch (convError) {
+        console.error('[API] Failed to create private conversation:', convError);
+      }
+
+      // Emit socket events
+      if (io) {
+        const requesterSocket = userSockets.get(requesterId);
+        if (requesterSocket) {
+          io.to(requesterSocket).emit('friend:request:updated', {
+            userId: recipientId,
+            username: req.user.username,
+            status: 'accepted',
+          });
+        }
+      }
+    } else {
+      // Reject/decline friendship
+      friendship.status = 'rejected';
+      await friendship.save();
+
+      // Emit socket event
+      if (io) {
+        const requesterSocket = userSockets.get(requesterId);
+        if (requesterSocket) {
+          io.to(requesterSocket).emit('friend:request:updated', {
+            userId: recipientId,
+            username: req.user.username,
+            status: 'rejected',
+          });
+        }
+      }
+    }
+
+    const payload = await buildFriendPayload(recipientId);
+    res.json(payload);
+  } catch (error) {
+    console.error('[API] POST /api/friends/request/:requesterId/respond - Error:', error);
+    res.status(500).json({ error: 'Unable to respond to friend request right now.' });
   }
 });
 
@@ -1678,19 +2352,278 @@ app.post(
   }
 );
 
+// ==================== LIVE SESSION APPLICATION ENDPOINTS ====================
+
+const serializeLiveSessionApplication = (app) => ({
+  applicationId: app.applicationId,
+  userId: app.userId,
+  username: app.username,
+  techSkill: app.techSkill,
+  message: app.message || '',
+  availability: app.availability || '',
+  status: app.status,
+  roomId: app.roomId || null,
+  approvedBy: app.approvedBy || null,
+  approvedByUsername: app.approvedByUsername || null,
+  approvedAt: app.approvedAt || null,
+  rejectedAt: app.rejectedAt || null,
+  adminNotes: app.adminNotes || '',
+  createdAt: app.createdAt,
+  updatedAt: app.updatedAt,
+});
+
+// Helper to get room ID from tech skill
+const getRoomIdFromTechSkill = (techSkill) => {
+  // Normalize tech skill to room ID format
+  const normalized = techSkill.toLowerCase().replace(/\s+/g, '-');
+  return `room-${normalized}`;
+};
+
+// Apply for live session
+app.post('/api/live-sessions/apply', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {techSkill, message = '', availability = ''} = req.body || {};
+
+    if (!techSkill || typeof techSkill !== 'string' || techSkill.trim().length === 0) {
+      return res.status(400).json({error: 'Tech skill is required'});
+    }
+
+    // Check if user already has a pending application
+    const existingPending = await LiveSessionApplication.findOne({
+      userId: req.user.userId,
+      status: 'pending',
+    });
+
+    if (existingPending) {
+      return res.status(400).json({error: 'You already have a pending application'});
+    }
+
+    // Check if user already has an accepted application
+    const existingAccepted = await LiveSessionApplication.findOne({
+      userId: req.user.userId,
+      status: 'accepted',
+    });
+
+    if (existingAccepted) {
+      return res.status(400).json({
+        error: 'You already have an accepted application',
+        application: serializeLiveSessionApplication(existingAccepted),
+      });
+    }
+
+    const application = new LiveSessionApplication({
+      applicationId: generateId(),
+      userId: req.user.userId,
+      username: req.user.username,
+      techSkill: techSkill.trim(),
+      message: message.trim().substring(0, 500),
+      availability: availability.trim().substring(0, 200),
+      status: 'pending',
+    });
+
+    await application.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('live-session:application:created', serializeLiveSessionApplication(application));
+    }
+
+    res.status(201).json(serializeLiveSessionApplication(application));
+  } catch (error) {
+    console.error('Apply for live session error:', error);
+    res.status(500).json({error: 'Unable to submit application right now.'});
+  }
+});
+
+// Get user's application status
+app.get('/api/live-sessions/application/status', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const application = await LiveSessionApplication.findOne({
+      userId: req.user.userId,
+    }).sort({createdAt: -1});
+
+    if (!application) {
+      return res.json({status: 'none', application: null});
+    }
+
+    res.json({
+      status: application.status,
+      application: serializeLiveSessionApplication(application),
+    });
+  } catch (error) {
+    console.error('Get application status error:', error);
+    res.status(500).json({error: 'Unable to fetch application status right now.'});
+  }
+});
+
+// Admin: Get all applications
+app.get('/api/admin/live-sessions/applications', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {status} = req.query;
+    const query = status && ['pending', 'accepted', 'rejected'].includes(status) ? {status} : {};
+
+    const applications = await LiveSessionApplication.find(query).sort({createdAt: -1});
+    res.json(applications.map(serializeLiveSessionApplication));
+  } catch (error) {
+    console.error('Get all applications error:', error);
+    res.status(500).json({error: 'Unable to fetch applications right now.'});
+  }
+});
+
+// Admin: Approve application
+app.post('/api/admin/live-sessions/applications/:applicationId/approve', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {applicationId} = req.params;
+    const {adminNotes = ''} = req.body || {};
+
+    const application = await LiveSessionApplication.findOne({applicationId});
+    if (!application) {
+      return res.status(404).json({error: 'Application not found'});
+    }
+
+    if (application.status !== 'pending') {
+      return res.status(400).json({error: 'Application already processed'});
+    }
+
+    // Assign room based on tech skill
+    const roomId = getRoomIdFromTechSkill(application.techSkill);
+
+    application.status = 'accepted';
+    application.roomId = roomId;
+    application.approvedBy = req.user.userId;
+    application.approvedByUsername = req.user.username;
+    application.approvedAt = new Date();
+    application.adminNotes = adminNotes.trim().substring(0, 500);
+    await application.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('live-session:application:updated', serializeLiveSessionApplication(application));
+      const userRoom = `user:${application.userId}`;
+      io.to(userRoom).emit('live-session:application:approved', serializeLiveSessionApplication(application));
+    }
+
+    res.json(serializeLiveSessionApplication(application));
+  } catch (error) {
+    console.error('Approve application error:', error);
+    res.status(500).json({error: 'Unable to approve application right now.'});
+  }
+});
+
+// Admin: Reject application
+app.post('/api/admin/live-sessions/applications/:applicationId/reject', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {applicationId} = req.params;
+    const {adminNotes = ''} = req.body || {};
+
+    const application = await LiveSessionApplication.findOne({applicationId});
+    if (!application) {
+      return res.status(404).json({error: 'Application not found'});
+    }
+
+    if (application.status !== 'pending') {
+      return res.status(400).json({error: 'Application already processed'});
+    }
+
+    application.status = 'rejected';
+    application.approvedBy = req.user.userId;
+    application.approvedByUsername = req.user.username;
+    application.rejectedAt = new Date();
+    application.adminNotes = adminNotes.trim().substring(0, 500);
+    await application.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('live-session:application:updated', serializeLiveSessionApplication(application));
+      const userRoom = `user:${application.userId}`;
+      io.to(userRoom).emit('live-session:application:rejected', serializeLiveSessionApplication(application));
+    }
+
+    res.json(serializeLiveSessionApplication(application));
+  } catch (error) {
+    console.error('Reject application error:', error);
+    res.status(500).json({error: 'Unable to reject application right now.'});
+  }
+});
+
+// Get room details
+app.get('/api/live-sessions/rooms/:roomId', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {roomId} = req.params;
+
+    // Check if user has access to this room
+    const application = await LiveSessionApplication.findOne({
+      userId: req.user.userId,
+      roomId,
+      status: 'accepted',
+    });
+
+    if (!application && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({error: 'Access denied to this room'});
+    }
+
+    // Get all users in this room
+    const roomApplications = await LiveSessionApplication.find({
+      roomId,
+      status: 'accepted',
+    });
+
+    const participants = roomApplications.map((app) => ({
+      userId: app.userId,
+      username: app.username,
+      techSkill: app.techSkill,
+      joinedAt: app.approvedAt || app.createdAt,
+    }));
+
+    res.json({
+      roomId,
+      techSkill: application?.techSkill || roomId.replace('room-', '').replace(/-/g, ' '),
+      participants,
+      participantCount: participants.length,
+    });
+  } catch (error) {
+    console.error('Get room details error:', error);
+    res.status(500).json({error: 'Unable to fetch room details right now.'});
+  }
+});
+
 const serializeGroup = (group) => ({
   groupId: group.groupId,
   name: group.name,
   description: group.description || '',
   type: group.type || 'community',
   createdBy: group.createdBy,
-  memberCount: group.members.length,
-  members: group.members,
-  admins: group.admins || [],
+  memberCount: Array.isArray(group.members) ? group.members.length : 0,
+  members: Array.isArray(group.members) ? group.members : [],
+  admins: Array.isArray(group.admins) ? group.admins : [],
   pendingJoinCount: Array.isArray(group.joinRequests)
     ? group.joinRequests.filter((req) => req.status === 'pending').length
     : 0,
-  topics: group.topics || [],
+  topics: Array.isArray(group.topics) ? group.topics : [],
   createdAt: group.createdAt,
   updatedAt: group.updatedAt,
 });
@@ -1715,6 +2648,14 @@ app.get('/api/tech-groups', async (req, res) => {
   try {
     console.log('[API] GET /api/tech-groups - Request received');
     
+    // Set timeout for response
+    res.setTimeout(10000, () => {
+      console.error('[API] GET /api/tech-groups - Request timeout after 10s');
+      if (!res.headersSent) {
+        res.status(504).json({ error: 'Request timeout' });
+      }
+    });
+    
     // Check MongoDB connection
     if (mongoose.connection.readyState !== 1) {
       console.warn('[API] GET /api/tech-groups - Database not connected, returning empty array');
@@ -1726,7 +2667,10 @@ app.get('/api/tech-groups', async (req, res) => {
       ? { name: { $regex: new RegExp(search.trim(), 'i') } }
       : {};
 
-    const groups = await TechGroup.find(query).sort({ createdAt: -1 }).lean();
+    console.log('[API] GET /api/tech-groups - Querying database...');
+    const groups = await TechGroup.find(query).sort({ createdAt: -1 }).limit(100).lean();
+    console.log(`[API] GET /api/tech-groups - Found ${groups.length} groups`);
+    
     const result = Array.isArray(groups) ? groups.map(serializeGroup) : [];
     
     console.log(`[API] GET /api/tech-groups - Returning ${result.length} groups`);
@@ -1734,7 +2678,9 @@ app.get('/api/tech-groups', async (req, res) => {
   } catch (error) {
     console.error('[API] GET /api/tech-groups - Error:', error);
     // Return empty array instead of 500 error
-    res.json([]);
+    if (!res.headersSent) {
+      res.json([]);
+    }
   }
 });
 
@@ -2036,6 +2982,735 @@ app.get('/api/tech-groups/:groupId/messages/archived', async (req, res) => {
   }
 });
 
+// ========== ASSESSMENT ENDPOINTS ==========
+// GET /api/tech-groups/:slug/assessment-status - Get assessment status for user
+app.get('/api/tech-groups/:slug/assessment-status', authenticateJWT, async (req, res) => {
+  try {
+    console.log('[API] GET /api/tech-groups/:slug/assessment-status - Request received', req.params.slug);
+    
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database connection unavailable' });
+    }
+    
+    const { slug } = req.params;
+    const group = await findTechGroupBySlug(slug);
+    if (!group) {
+      return res.status(404).json({ error: 'Tech group not found' });
+    }
+    
+    // Check if user has completed assessment (has join request with status)
+    const joinRequest = Array.isArray(group.joinRequests) 
+      ? group.joinRequests.find(req => req.userId === req.user.userId)
+      : null;
+    
+    res.json({
+      completed: joinRequest ? joinRequest.status !== 'pending' : false,
+      status: joinRequest?.status || null,
+      level: joinRequest?.level || null,
+    });
+  } catch (error) {
+    console.error('[API] GET /api/tech-groups/:slug/assessment-status - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch assessment status' });
+  }
+});
+
+// GET /api/tech-groups/:slug/assessment/questions - Get assessment questions
+app.get('/api/tech-groups/:slug/assessment/questions', authenticateJWT, async (req, res) => {
+  try {
+    // Normalize slug (lowercase, trim)
+    const rawSlug = req.params.slug;
+    const normalizedSlug = rawSlug.toLowerCase().trim();
+    console.log(`[Assessment] GET /api/tech-groups/${normalizedSlug}/assessment/questions - Request received`);
+    console.log(`[Assessment] Raw slug: "${rawSlug}", Normalized: "${normalizedSlug}"`);
+    
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[Assessment] Database not connected');
+      return res.status(200).json({ questions: [], totalQuestions: 0 }); // Return 200 OK with empty array
+    }
+    
+    const { count = 7 } = req.query;
+    const questionCount = Math.min(Math.max(parseInt(count, 10) || 7, 5), 10);
+    console.log(`[Assessment] Requested count: ${count}, Parsed: ${questionCount}`);
+    
+    // Find tech group by slug (normalized)
+    const group = await findTechGroupBySlug(normalizedSlug);
+    if (!group) {
+      console.warn(`[Assessment] Tech group not found for slug: ${normalizedSlug}`);
+      // Return 200 OK with empty array instead of 404
+      return res.status(200).json({ questions: [], totalQuestions: 0, techSkill: null });
+    }
+    
+    console.log(`[Assessment] Found tech group: ${group.name} (groupId: ${group.groupId})`);
+    
+    // Extract tech skill from group
+    const techSkill = extractTechSkillFromGroup(group);
+    console.log(`[Assessment] Extracted tech skill: ${techSkill}`);
+    
+    if (!techSkill) {
+      console.warn(`[Assessment] Could not determine tech skill for group: ${group.name}`);
+      // Return 200 OK with empty array instead of 400
+      return res.status(200).json({ 
+        questions: [], 
+        totalQuestions: 0, 
+        techSkill: null,
+        groupName: group.name,
+        groupId: group.groupId
+      });
+    }
+    
+    // Normalize skill key for database lookup
+    const skillKey = techSkill.toLowerCase().replace(/\s+/g, '-');
+    const normalizedSkill = skillKey === 'full-stack' || skillKey === 'fullstack' ? 'fullstack' : skillKey;
+    console.log(`[Assessment] Normalized skill key: ${normalizedSkill}`);
+    
+    // Try to fetch from database first (prioritize techGroupId, then techGroupSlug, then techSkill)
+    let dbQuestions = await AssessmentQuestion.find({
+      $or: [
+        { techGroupId: group.groupId, isActive: true }, // Most specific: exact group match
+        { techGroupSlug: normalizedSlug, isActive: true }, // Group slug match
+        { techSkill: normalizedSkill, isActive: true, techGroupId: { $exists: false } } // Skill-based only if not linked to a specific group
+      ]
+    }).lean();
+    
+    console.log(`[Assessment] Found ${dbQuestions.length} questions in database`);
+    
+    let allQuestions = [];
+    
+    if (dbQuestions.length > 0) {
+      // Use database questions - shuffle options for each question
+      dbQuestions.forEach((q) => {
+        const options = [...(q.options || [])];
+        const correctAnswer = q.correctAnswer;
+        // Shuffle options array
+        for (let i = options.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [options[i], options[j]] = [options[j], options[i]];
+        }
+        allQuestions.push({
+          question: q.question,
+          options,
+          correctAnswer,
+        });
+      });
+    } else {
+      // Fallback to in-memory ASSESSMENT_QUESTIONS if database is empty
+      console.warn(`[Assessment] No questions in DB, falling back to in-memory for ${normalizedSkill}`);
+      if (ASSESSMENT_QUESTIONS[normalizedSkill]) {
+        Object.values(ASSESSMENT_QUESTIONS[normalizedSkill]).forEach((levelQuestions) => {
+          if (Array.isArray(levelQuestions)) {
+            levelQuestions.forEach((q) => {
+              const options = [...(q.options || [])];
+              const correctAnswer = options[0];
+              // Shuffle options array
+              for (let i = options.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [options[i], options[j]] = [options[j], options[i]];
+              }
+              allQuestions.push({
+                question: q.question,
+                options,
+                correctAnswer,
+              });
+            });
+          }
+        });
+      }
+    }
+    
+    console.log(`[Assessment] Total questions available: ${allQuestions.length}`);
+    
+    if (allQuestions.length === 0) {
+      // Return 200 OK with empty array - never 400
+      console.warn(`[Assessment] No questions available for skill: ${normalizedSkill}`);
+      return res.status(200).json({ 
+        questions: [], 
+        totalQuestions: 0,
+        techSkill: normalizedSkill,
+        message: 'No questions available yet for this tech skill'
+      });
+    }
+    
+    // Shuffle questions and select N
+    const shuffled = allQuestions.sort(() => Math.random() - 0.5);
+    const selectedQuestions = shuffled.slice(0, questionCount);
+    
+    // Prepare questions for client (without correct answers)
+    const questionsForClient = selectedQuestions.map((q, idx) => ({
+      questionId: `q-${idx + 1}`,
+      question: q.question,
+      options: q.options || [],
+    }));
+    
+    console.log(`[Assessment] Returning ${questionsForClient.length} questions`);
+    
+    res.status(200).json({
+      questions: questionsForClient,
+      techSkill: normalizedSkill,
+      totalQuestions: questionsForClient.length,
+    });
+  } catch (error) {
+    console.error('[Assessment] GET /api/tech-groups/:slug/assessment/questions - Error:', error);
+    // Return 200 OK with empty array instead of 500
+    res.status(200).json({ questions: [], totalQuestions: 0, error: 'Failed to fetch questions' });
+  }
+});
+
+// POST /api/tech-groups/:slug/assessment/submit - Submit assessment answers
+app.post('/api/tech-groups/:slug/assessment/submit', authenticateJWT, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { answers, level } = req.body;
+    
+    console.log('[API] POST /api/tech-groups/:slug/assessment/submit - Request received', {
+      slug,
+      hasAnswers: !!answers,
+      answersCount: answers ? Object.keys(answers).length : 0,
+      level,
+      userId: req.user?.userId
+    });
+    
+    if (mongoose.connection.readyState !== 1) {
+      console.error('[API] Database connection unavailable');
+      return res.status(503).json({ error: 'Database connection unavailable' });
+    }
+    
+    if (!answers || typeof answers !== 'object') {
+      console.warn('[API] Invalid answers payload:', answers);
+      return res.status(400).json({ error: 'Answers are required' });
+    }
+    
+    // Normalize slug
+    const normalizedSlug = slug.toLowerCase().trim();
+    const group = await findTechGroupBySlug(normalizedSlug);
+    if (!group) {
+      console.warn(`[API] Tech group not found for slug: ${normalizedSlug}`);
+      return res.status(404).json({ error: 'Tech group not found' });
+    }
+    
+    console.log(`[API] Found tech group: ${group.name} (${group.groupId})`);
+    
+    if (!Array.isArray(group.joinRequests)) {
+      group.joinRequests = [];
+    }
+    
+    // Find existing request or create new one
+    let request = group.joinRequests.find(req => req.userId === req.user.userId);
+    if (!request) {
+      request = {
+        requestId: generateId(),
+        userId: req.user.userId,
+        username: req.user.username,
+        answers: {},
+        level: '',
+        status: 'approved',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        decidedAt: new Date(),
+        decidedBy: 'system',
+      };
+      group.joinRequests.push(request);
+    }
+    
+    // Update request with assessment data
+    request.answers = answers;
+    if (level) request.level = level;
+    request.updatedAt = new Date();
+    
+    // Auto-approve assessment submissions
+    if (request.status === 'pending') {
+      request.status = 'approved';
+      request.decidedAt = new Date();
+      request.decidedBy = 'system';
+      
+      // Add user to group if not already a member
+      if (!group.members.includes(req.user.userId)) {
+        group.members.push(req.user.userId);
+      }
+    }
+    
+    await group.save();
+    
+    // Calculate score from answers (if questions are provided)
+    // For now, auto-approve means passed
+    const passed = request.status === 'approved';
+    const score = passed ? 100 : 0; // Default to 100% for auto-approved assessments
+    
+    console.log(`[API] Assessment submitted successfully for user ${req.user.userId}, group: ${group.name}`);
+    
+    res.json({
+      success: true,
+      passed,
+      score,
+      message: passed 
+        ? `Congratulations! You've been added to ${group.name}.` 
+        : 'Assessment submitted successfully.',
+      request: serializeJoinRequest(request),
+      group: serializeGroup(group),
+    });
+  } catch (error) {
+    console.error('[API] POST /api/tech-groups/:slug/assessment/submit - Error:', error);
+    res.status(500).json({ error: 'Failed to submit assessment', message: error.message });
+  }
+});
+
+// ==================== GROUP ASSESSMENT ENDPOINTS (with attempt tracking) ====================
+
+// Get assessment status for a user/group (check attempts, pass status)
+app.get('/api/tech-groups/:groupId/assessment/status', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {groupId} = req.params;
+    const group = await TechGroup.findOne({groupId});
+    if (!group) {
+      return res.status(404).json({error: 'Tech group not found'});
+    }
+
+    // Check if user is already a member
+    if (group.members?.includes(req.user.userId)) {
+      return res.json({
+        status: 'passed',
+        isMember: true,
+        attempts: [],
+        canAttempt: false,
+      });
+    }
+
+    // Get all attempts for this user/group
+    const attempts = await GroupAssessmentAttempt.find({
+      userId: req.user.userId,
+      groupId,
+    }).sort({createdAt: -1});
+
+    const passedAttempt = attempts.find((a) => a.passed);
+    const attemptCount = attempts.length;
+
+    if (passedAttempt) {
+      return res.json({
+        status: 'passed',
+        isMember: false,
+        attempts: attempts.map((a) => ({
+          attemptNumber: a.attemptNumber,
+          score: a.score,
+          passed: a.passed,
+          completedAt: a.completedAt,
+        })),
+        canAttempt: false,
+      });
+    }
+
+    if (attemptCount >= 2) {
+      return res.json({
+        status: 'failed',
+        isMember: false,
+        attempts: attempts.map((a) => ({
+          attemptNumber: a.attemptNumber,
+          score: a.score,
+          passed: a.passed,
+          completedAt: a.completedAt,
+        })),
+        canAttempt: false,
+        message: 'Maximum attempts reached. Please enroll in live classes to improve your skills.',
+      });
+    }
+
+    return res.json({
+      status: 'pending',
+      isMember: false,
+      attempts: attempts.map((a) => ({
+        attemptNumber: a.attemptNumber,
+        score: a.score,
+        passed: a.passed,
+        completedAt: a.completedAt,
+      })),
+      canAttempt: true,
+      nextAttemptNumber: attemptCount + 1,
+    });
+  } catch (error) {
+    console.error('Get assessment status error:', error);
+    res.status(500).json({error: 'Failed to fetch assessment status'});
+  }
+});
+
+// Get randomized questions for assessment
+app.get('/api/tech-groups/:groupId/assessment/questions', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {groupId} = req.params;
+    const {count = 7} = req.query;
+    // Allow count between 5-10, default to 7 if invalid
+    const parsedCount = parseInt(count, 10);
+    const questionCount = parsedCount && parsedCount >= 5 && parsedCount <= 10 
+      ? parsedCount 
+      : (parsedCount && parsedCount > 0 && parsedCount < 5 ? 5 : 7);
+
+    const group = await TechGroup.findOne({groupId});
+    if (!group) {
+      console.error(`[Assessment] Group not found: ${groupId}`);
+      return res.status(404).json({error: 'Tech group not found'});
+    }
+
+    console.log(`[Assessment] Found group: ${group.name} (groupId: ${groupId})`);
+    console.log(`[Assessment] Group topics:`, group.topics);
+
+    // Check attempt status first
+    const attempts = await GroupAssessmentAttempt.find({
+      userId: req.user.userId,
+      groupId,
+    });
+
+    if (attempts.length >= 2) {
+      const passedAttempt = attempts.find((a) => a.passed);
+      if (!passedAttempt) {
+        return res.status(403).json({
+          error: 'Maximum attempts reached',
+          message: 'You have reached the maximum number of attempts. Please enroll in live classes.',
+        });
+      }
+    }
+
+    // Extract tech skill from group name or topics
+    const techSkill = extractTechSkillFromGroup(group);
+    console.log(`[Assessment] Extracted tech skill: ${techSkill} for group ${group.name}`);
+    if (!techSkill) {
+      console.error(`[Assessment] Could not determine tech skill for group: ${group.name}, topics: ${group.topics}`);
+      // Return more helpful error message
+      return res.status(400).json({
+        error: 'Could not determine tech skill for this group',
+        groupName: group.name,
+        groupId: group.groupId,
+        topics: group.topics
+      });
+    }
+
+    // Get questions from ASSESSMENT_QUESTIONS
+    const skillKey = techSkill.toLowerCase().replace(/\s+/g, '-');
+    const normalizedSkill = skillKey === 'full-stack' || skillKey === 'fullstack' ? 'fullstack' : skillKey;
+    
+    // Get questions from all levels and randomize
+    const allQuestions = [];
+    if (ASSESSMENT_QUESTIONS[normalizedSkill]) {
+      Object.values(ASSESSMENT_QUESTIONS[normalizedSkill]).forEach((levelQuestions) => {
+        if (Array.isArray(levelQuestions)) {
+          levelQuestions.forEach((q) => {
+            // Shuffle options but remember the correct answer (first option)
+            const options = [...(q.options || [])];
+            const correctAnswer = options[0];
+            // Shuffle options array
+            for (let i = options.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [options[i], options[j]] = [options[j], options[i]];
+            }
+            
+            allQuestions.push({
+              question: q.question,
+              options,
+              correctAnswer, // Store correct answer server-side
+            });
+          });
+        }
+      });
+    }
+
+    if (allQuestions.length === 0) {
+      return res.status(404).json({error: 'No questions available for this tech skill'});
+    }
+
+    // Shuffle questions and select N
+    const shuffled = allQuestions.sort(() => Math.random() - 0.5);
+    const selectedQuestions = shuffled.slice(0, questionCount);
+    
+    // Initialize app.locals if not exists
+    if (!req.app.locals.assessmentAnswers) {
+      req.app.locals.assessmentAnswers = new Map();
+    }
+    
+    // Prepare questions for client (without correct answers)
+    const questionsForClient = selectedQuestions.map((q, idx) => ({
+      questionId: `q-${idx + 1}`,
+      question: q.question,
+      options: q.options || [],
+    }));
+
+    // Store correct answers in server-side map keyed by groupId:userId:questionId
+    selectedQuestions.forEach((q, idx) => {
+      const storageKey = `${groupId}:${req.user.userId}:q-${idx + 1}`;
+      req.app.locals.assessmentAnswers.set(storageKey, q.correctAnswer);
+    });
+
+    res.json({
+      questions: questionsForClient,
+      techSkill,
+      totalQuestions: questionsForClient.length,
+    });
+  } catch (error) {
+    console.error('Get assessment questions error:', error);
+    res.status(500).json({error: 'Failed to fetch assessment questions'});
+  }
+});
+
+// Submit assessment answers
+app.post('/api/tech-groups/:groupId/assessment/submit', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {groupId} = req.params;
+    const {answers, questions} = req.body; // answers: {questionId: selectedAnswer}, questions: original questions array
+
+    if (!answers || typeof answers !== 'object') {
+      return res.status(400).json({error: 'Answers are required'});
+    }
+
+    const group = await TechGroup.findOne({groupId});
+    if (!group) {
+      return res.status(404).json({error: 'Tech group not found'});
+    }
+
+    // Check if user is already a member
+    if (group.members?.includes(req.user.userId)) {
+      return res.json({
+        success: true,
+        passed: true,
+        score: 100,
+        message: 'You are already a member of this group',
+        isMember: true,
+      });
+    }
+
+    // Check existing attempts
+    const existingAttempts = await GroupAssessmentAttempt.find({
+      userId: req.user.userId,
+      groupId,
+    }).sort({createdAt: -1});
+
+    if (existingAttempts.length >= 2) {
+      const passedAttempt = existingAttempts.find((a) => a.passed);
+      if (!passedAttempt) {
+        return res.status(403).json({
+          error: 'Maximum attempts reached',
+          message: 'You have reached the maximum number of attempts. Please enroll in live classes to improve your skills.',
+          attempts: existingAttempts.map((a) => ({
+            attemptNumber: a.attemptNumber,
+            score: a.score,
+            passed: a.passed,
+          })),
+        });
+      }
+    }
+
+    const nextAttemptNumber = existingAttempts.length + 1;
+
+    // Score the assessment
+    if (!questions || !Array.isArray(questions)) {
+      return res.status(400).json({error: 'Questions array is required for scoring'});
+    }
+
+    // Retrieve correct answers from server-side storage
+    // Initialize if not exists
+    if (!req.app.locals.assessmentAnswers) {
+      req.app.locals.assessmentAnswers = new Map();
+    }
+    const answerMap = req.app.locals.assessmentAnswers;
+    
+    let correctCount = 0;
+    const questionResults = questions.map((q) => {
+      const selectedAnswer = answers[q.questionId];
+      
+      // Get correct answer from server-side storage
+      const storageKey = `${groupId}:${req.user.userId}:${q.questionId}`;
+      let correctAnswer = answerMap.get(storageKey) || '';
+      
+      // Fallback: try to find correct answer by matching question text in ASSESSMENT_QUESTIONS
+      if (!correctAnswer) {
+        const techSkill = extractTechSkillFromGroup(group);
+        const skillKey = techSkill?.toLowerCase().replace(/\s+/g, '-') || '';
+        const normalizedSkill = skillKey === 'full-stack' || skillKey === 'fullstack' ? 'fullstack' : skillKey;
+        
+        if (ASSESSMENT_QUESTIONS[normalizedSkill]) {
+          for (const levelQuestions of Object.values(ASSESSMENT_QUESTIONS[normalizedSkill])) {
+            if (Array.isArray(levelQuestions)) {
+              const matched = levelQuestions.find((aq) => aq.question === q.question);
+              if (matched && matched.options && matched.options.length > 0) {
+                correctAnswer = matched.options[0]; // First option is correct
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // Clean up stored answer after use
+      answerMap.delete(storageKey);
+      
+      const isCorrect = selectedAnswer === correctAnswer;
+      if (isCorrect) correctCount++;
+      return {
+        questionId: q.questionId,
+        question: q.question,
+        selectedAnswer: selectedAnswer || '',
+        correctAnswer,
+        isCorrect,
+      };
+    });
+
+    const totalQuestions = questions.length;
+    const score = Math.round((correctCount / totalQuestions) * 100);
+    const passed = score >= 20; // Minimum 20% to pass
+
+    // Extract tech skill
+    const techSkill = extractTechSkillFromGroup(group);
+
+    // Save attempt
+    const attempt = new GroupAssessmentAttempt({
+      attemptId: generateId(),
+      userId: req.user.userId,
+      groupId,
+      techSkill: techSkill || 'unknown',
+      attemptNumber: nextAttemptNumber,
+      questions: questionResults,
+      score,
+      passed,
+      completedAt: new Date(),
+    });
+    await attempt.save();
+
+    if (passed) {
+      // Add user to group
+      if (!group.members.includes(req.user.userId)) {
+        group.members.push(req.user.userId);
+      }
+
+      // Create join request record
+      if (!Array.isArray(group.joinRequests)) {
+        group.joinRequests = [];
+      }
+      const joinRequest = {
+        requestId: generateId(),
+        userId: req.user.userId,
+        username: req.user.username,
+        answers: answers,
+        level: 'assessed',
+        status: 'approved',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        decidedAt: new Date(),
+        decidedBy: 'system',
+      };
+      group.joinRequests.push(joinRequest);
+
+      // Add welcome message
+      if (!Array.isArray(group.messages)) {
+        group.messages = [];
+      }
+      group.messages.push({
+        messageId: generateId(),
+        groupId,
+        userId: 'system',
+        username: 'Announcements',
+        message: `🎉 **${req.user.username}** just joined ${group.name} after passing the skill assessment!`,
+        attachments: [],
+        voiceNote: null,
+        timestamp: new Date(),
+        reactions: {},
+        readBy: [],
+      });
+
+      await group.save();
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`group:${groupId}`).emit('group:joined', {groupId, userId: req.user.userId});
+      }
+    }
+
+    res.json({
+      success: true,
+      passed,
+      score,
+      correctCount,
+      totalQuestions,
+      attemptNumber: nextAttemptNumber,
+      message: passed
+        ? 'Congratulations! You passed the assessment and have been added to the group.'
+        : nextAttemptNumber < 2
+          ? `You scored ${score}%. You need at least 20% to pass. You have one more attempt.`
+          : 'You have reached the maximum number of attempts. Please enroll in live classes to improve your skills.',
+      canRetry: !passed && nextAttemptNumber < 2,
+      maxAttemptsReached: nextAttemptNumber >= 2 && !passed,
+    });
+  } catch (error) {
+    console.error('Submit assessment error:', error);
+    res.status(500).json({error: 'Failed to submit assessment'});
+  }
+});
+
+// Helper function to extract tech skill from group
+const extractTechSkillFromGroup = (group) => {
+  if (!group) return null;
+  
+  // Check topics first
+  if (Array.isArray(group.topics) && group.topics.length > 0) {
+    const skillTopics = ['Frontend', 'Backend', 'Fullstack', 'Mobile', 'AI/ML', 'Data Science', 'Cybersecurity', 'Cloud', 'DevOps', 'UI/UX'];
+    for (const topic of group.topics) {
+      const matched = skillTopics.find((skill) => topic.toLowerCase().includes(skill.toLowerCase()));
+      if (matched) return matched;
+    }
+  }
+  
+  // Check group name and groupId
+  const name = (group.name || '').toLowerCase();
+  const groupIdLower = (group.groupId || '').toLowerCase();
+  const combined = `${name} ${groupIdLower}`.toLowerCase();
+  
+  const skillMap = {
+    frontend: 'Frontend',
+    backend: 'Backend',
+    'api': 'Backend', // API groups are typically backend
+    'artisans': 'Backend', // API Artisans -> Backend
+    fullstack: 'Fullstack',
+    'full-stack': 'Fullstack',
+    mobile: 'Mobile',
+    'ai/ml': 'AI/ML',
+    'ai': 'AI/ML',
+    'ml': 'AI/ML',
+    'machine learning': 'AI/ML',
+    'data science': 'Data Science',
+    'data-science': 'Data Science',
+    cybersecurity: 'Cybersecurity',
+    'cyber': 'Cybersecurity',
+    cloud: 'Cloud',
+    devops: 'DevOps',
+    'ui/ux': 'UI/UX',
+    'ui': 'UI/UX',
+    'ux': 'UI/UX',
+    'performance': 'UI/UX', // UI Performance -> UI/UX
+  };
+  
+  // Check combined string (name + groupId)
+  for (const [key, value] of Object.entries(skillMap)) {
+    if (combined.includes(key)) return value;
+  }
+  
+  // Check name separately
+  for (const [key, value] of Object.entries(skillMap)) {
+    if (name.includes(key)) return value;
+  }
+  
+  // Check groupId separately
+  for (const [key, value] of Object.entries(skillMap)) {
+    if (groupIdLower.includes(key)) return value;
+  }
+  
+  return 'Fullstack'; // Default fallback
+};
+
 app.post('/api/tech-groups/:groupId/messages/:messageId/archive', async (req, res) => {
   try {
     const { groupId, messageId } = req.params;
@@ -2188,16 +3863,108 @@ app.delete('/api/tech-groups/:groupId', authenticateJWT, async (req, res) => {
   }
 });
 
+// GET /api/admin/analytics - Get admin analytics
+app.get('/api/admin/analytics', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database connection unavailable' });
+    }
+    
+    // Total users
+    const totalUsers = await User.countDocuments({ status: { $ne: 'deleted' } });
+    
+    // Active users (online or seen in last 24 hours)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const activeUsers = await User.countDocuments({
+      $or: [
+        { online: true },
+        { lastSeen: { $gte: oneDayAgo } }
+      ],
+      status: { $ne: 'deleted' }
+    });
+    
+    // New signups
+    const now = new Date();
+    const daily = await User.countDocuments({
+      createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) }
+    });
+    const weekly = await User.countDocuments({
+      createdAt: { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) }
+    });
+    const monthly = await User.countDocuments({
+      createdAt: { $gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) }
+    });
+    
+    // Active sessions (users currently online)
+    const activeSessions = await User.countDocuments({ online: true });
+    
+    // Assessment completion rate (using GroupAssessmentAttempt)
+    const totalAssessments = await GroupAssessmentAttempt?.countDocuments() || 0;
+    const completedAssessments = await GroupAssessmentAttempt?.countDocuments({ completed: true }) || 0;
+    const assessmentCompletionRate = totalAssessments > 0 
+      ? Math.round((completedAssessments / totalAssessments) * 100) 
+      : 0;
+    
+    // Class attendance (placeholder - would need Classroom model)
+    const classAttendance = 0; // TODO: Implement when Classroom model exists
+    
+    // Group participation (users in tech groups)
+    const techGroups = await TechGroup.find({});
+    const groupParticipation = techGroups.reduce((total, group) => {
+      return total + (Array.isArray(group.members) ? group.members.length : 0);
+    }, 0);
+    
+    // Role distribution
+    const roleDistribution = {
+      admin: await User.countDocuments({ role: { $in: ['admin', 'superadmin'] }, status: { $ne: 'deleted' } }),
+      user: await User.countDocuments({ role: 'user', status: { $ne: 'deleted' } }),
+      instructor: await User.countDocuments({ role: 'instructor', status: { $ne: 'deleted' } })
+    };
+    
+    // Growth data (last 30 days)
+    const growthData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+      const usersOnDay = await User.countDocuments({
+        createdAt: { $gte: startOfDay, $lte: endOfDay }
+      });
+      growthData.push({
+        date: startOfDay.toISOString().split('T')[0],
+        users: usersOnDay
+      });
+    }
+    
+    res.json({
+      totalUsers,
+      activeUsers,
+      newSignups: { daily, weekly, monthly },
+      activeSessions,
+      assessmentCompletionRate,
+      classAttendance,
+      groupParticipation,
+      roleDistribution,
+      growthData
+    });
+  } catch (error) {
+    console.error('[API] GET /api/admin/analytics - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
 app.get('/api/admin/users', authenticateJWT, requireAdmin, async (req, res) => {
   try {
-    const users = await User.find({}, { password: 0 }).sort({ createdAt: -1 });
+    const users = await User.find({ status: { $ne: 'deleted' } }, { password: 0 }).sort({ createdAt: -1 });
     res.json(
       users.map((user) => ({
+        _id: user._id,
         userId: user.userId,
         username: user.username,
+        email: user.email || '',
         role: user.role,
         status: user.status,
-        online: user.online,
+        online: user.online || false,
         lastSeen: user.lastSeen,
         createdAt: user.createdAt,
         suspendedAt: user.suspendedAt,
@@ -2207,6 +3974,68 @@ app.get('/api/admin/users', authenticateJWT, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Admin fetch users error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Update user endpoint
+app.put('/api/admin/users/:userId', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { username, email, role, status } = req.body;
+    
+    const targetUser = await User.findOne({ userId });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Prevent modifying superadmin unless current user is superadmin
+    if (targetUser.role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Cannot modify superadmin' });
+    }
+    
+    // Prevent changing role to superadmin unless current user is superadmin
+    if (role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Cannot assign superadmin role' });
+    }
+    
+    if (username) targetUser.username = username;
+    if (email) targetUser.email = email;
+    if (role && ['user', 'admin', 'instructor', 'superadmin'].includes(role)) {
+      targetUser.role = role;
+    }
+    if (status && ['active', 'suspended'].includes(status)) {
+      targetUser.status = status;
+      if (status === 'suspended') {
+        targetUser.suspendedAt = new Date();
+      } else {
+        targetUser.suspendedAt = null;
+      }
+    }
+    
+    await targetUser.save();
+    
+    await createAdminLog({
+      adminId: req.user.userId,
+      adminUsername: req.currentUser?.username || req.user.username || 'admin',
+      action: 'update',
+      targetUserId: targetUser.userId,
+      targetUsername: targetUser.username,
+      details: `Updated: ${JSON.stringify({ username, email, role, status })}`,
+    });
+    
+    res.json({
+      success: true,
+      user: {
+        userId: targetUser.userId,
+        username: targetUser.username,
+        email: targetUser.email,
+        role: targetUser.role,
+        status: targetUser.status,
+      }
+    });
+  } catch (error) {
+    console.error('Admin update user error:', error);
+    res.status(500).json({ error: 'Failed to update user' });
   }
 });
 
@@ -2405,6 +4234,51 @@ app.post(
   }
 );
 
+// Admin classes endpoint (placeholder)
+app.get('/api/admin/classes', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    // TODO: Implement when Classroom model exists
+    res.json([]);
+  } catch (error) {
+    console.error('Admin fetch classes error:', error);
+    res.status(500).json({ error: 'Failed to fetch classes' });
+  }
+});
+
+// Admin approvals endpoint
+app.get('/api/admin/approvals', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const approvals = [];
+    
+    // Get pending classroom requests
+    const techGroups = await TechGroup.find({});
+    for (const group of techGroups) {
+      if (Array.isArray(group.joinRequests)) {
+        const pending = group.joinRequests.filter(r => r.status === 'pending');
+        for (const request of pending) {
+          const user = await User.findOne({ userId: request.userId }, { username: 1, email: 1 });
+          approvals.push({
+            id: request.requestId,
+            type: 'classroom-request',
+            groupId: group.groupId,
+            groupName: group.name,
+            userId: request.userId,
+            username: user?.username || 'Unknown',
+            email: user?.email || '',
+            status: request.status,
+            createdAt: request.createdAt,
+          });
+        }
+      }
+    }
+    
+    res.json(approvals);
+  } catch (error) {
+    console.error('Admin fetch approvals error:', error);
+    res.status(500).json({ error: 'Failed to fetch approvals' });
+  }
+});
+
 app.get('/api/admin/logs', authenticateJWT, requireAdmin, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '20', 10), 100);
@@ -2590,6 +4464,8 @@ io.on('connection', (socket) => {
   });
   
   socket.on('user:join', async ({ userId, username }) => {
+    socket.userId = userId;
+    socket.username = username;
     try {
       userSockets.set(userId, socket.id);
       if (typeof userId === 'string' && userId.trim()) {
@@ -2662,7 +4538,7 @@ io.on('connection', (socket) => {
     }
   });
   
-  socket.on('group:message', async ({ groupId, userId, username, message = '', attachments = [], voiceNote = null, messageId, timestamp, reactions = {} }) => {
+  socket.on('group:message', async ({ groupId, userId, username, message = '', attachments = [], voiceNote = null, messageId, timestamp, reactions = {}, type = 'text' }) => {
     try {
       const group = await TechGroup.findOne({ groupId });
       if (group && group.members.includes(userId)) {
@@ -2677,6 +4553,27 @@ io.on('connection', (socket) => {
             triggerWord: bannedWord,
           });
           return;
+        }
+
+        // Determine message type if not provided
+        let messageType = type;
+        if (!messageType || !['text', 'emoji', 'image', 'file', 'audio'].includes(messageType)) {
+          if (voiceNote && voiceNote.url) {
+            messageType = 'audio';
+          } else if (attachments && attachments.length > 0) {
+            const firstAttachment = attachments[0];
+            if (firstAttachment.type && firstAttachment.type.startsWith('image/')) {
+              messageType = 'image';
+            } else if (firstAttachment.type && firstAttachment.type.startsWith('audio/')) {
+              messageType = 'audio';
+            } else {
+              messageType = 'file';
+            }
+          } else if (message.trim().match(/^[\p{Emoji}\s]+$/u)) {
+            messageType = 'emoji';
+          } else {
+            messageType = 'text';
+          }
         }
 
         const sanitizedAttachments = Array.isArray(attachments)
@@ -2704,6 +4601,7 @@ io.on('connection', (socket) => {
           groupId,
           userId,
           username,
+          type: messageType,
           message,
           attachments: sanitizedAttachments,
           voiceNote: sanitizedVoiceNote,
@@ -2749,9 +4647,145 @@ io.on('connection', (socket) => {
     }
   });
   
-  socket.on('private:message', async ({ userId, targetUserId, message = '', attachments = [], voiceNote = null, username, messageId, timestamp, reactions = {} }) => {
+  // ========== PRIVATE CIRCLE SOCKET HANDLERS ==========
+  socket.on('circle:join', async ({ circleId, userId }) => {
     try {
+      const circle = await PrivateCircle.findOne({ circleId });
+      if (circle) {
+        const isMember = circle.members.some((m) => m.userId === userId);
+        if (!isMember) {
+          socket.emit('error', { message: 'You are not a member of this circle' });
+          return;
+        }
+        socket.join(`circle:${circleId}`);
+        socket.emit('circle:messages', filterActiveMessages(circle.messages || []));
+      }
+    } catch (error) {
+      console.error('[Socket.IO] Private circle join error:', error);
+      socket.emit('error', { message: 'Failed to join circle' });
+    }
+  });
+
+  socket.on('circle:message', async ({ circleId, userId, username, message = '', attachments = [], voiceNote = null, messageId, timestamp, reactions = {}, type = 'text' }) => {
+    try {
+      const circle = await PrivateCircle.findOne({ circleId });
+      if (!circle) {
+        socket.emit('error', { message: 'Circle not found' });
+        return;
+      }
+
+      // Verify user is a member
+      const isMember = circle.members.some((m) => m.userId === userId);
+      if (!isMember) {
+        socket.emit('error', { message: 'You are not a member of this circle' });
+        return;
+      }
+
+      const bannedWord = containsBannedWord(message || '');
+      if (bannedWord) {
+        await flagMessageViolation({
+          userId,
+          username,
+          messageId,
+          circleId,
+          offendingContent: message,
+          triggerWord: bannedWord,
+        });
+        return;
+      }
+
+      // Determine message type if not provided
+      let messageType = type;
+      if (!messageType || !['text', 'emoji', 'image', 'file', 'audio'].includes(messageType)) {
+        if (voiceNote && voiceNote.url) {
+          messageType = 'audio';
+        } else if (attachments && attachments.length > 0) {
+          const firstAttachment = attachments[0];
+          if (firstAttachment.type && firstAttachment.type.startsWith('image/')) {
+            messageType = 'image';
+          } else if (firstAttachment.type && firstAttachment.type.startsWith('audio/')) {
+            messageType = 'audio';
+          } else {
+            messageType = 'file';
+          }
+        } else if (message.trim().match(/^[\p{Emoji}\s]+$/u)) {
+          messageType = 'emoji';
+        } else {
+          messageType = 'text';
+        }
+      }
+
+      const sanitizedAttachments = Array.isArray(attachments)
+        ? attachments.map((item) => ({
+            url: item.url,
+            name: item.name?.toString().slice(0, 120) || '',
+            type: item.type?.toString().slice(0, 80) || 'application/octet-stream',
+            size: Number.isFinite(item.size) ? item.size : 0,
+          }))
+        : [];
+
+      const sanitizedVoiceNote = voiceNote && voiceNote.url
+        ? {
+            url: voiceNote.url,
+            mimeType: voiceNote.mimeType?.toString().slice(0, 80) || 'audio/webm',
+            duration: Number.isFinite(voiceNote.duration) ? voiceNote.duration : 0,
+            waveform: Array.isArray(voiceNote.waveform)
+              ? voiceNote.waveform.slice(0, 64).map((value) => Number(value) || 0)
+              : [],
+          }
+        : null;
+
+      const messageData = {
+        messageId: messageId || generateId(),
+        senderId: userId,
+        username,
+        type: messageType,
+        message,
+        attachments: sanitizedAttachments,
+        voiceNote: sanitizedVoiceNote,
+        timestamp: timestamp || new Date(),
+        reactions,
+        readBy: [userId],
+      };
+
+      circle.messages.push(messageData);
+      await circle.save();
+
+      io.to(`circle:${circleId}`).emit('circle:message', {
+        ...messageData,
+        timestamp: messageData.timestamp.toISOString(),
+      });
+    } catch (error) {
+      console.error('[Socket.IO] Private circle message error:', error);
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  });
+
+  socket.on('private:message', async ({ userId, targetUserId, message = '', attachments = [], voiceNote = null, username, messageId, timestamp, reactions = {}, type = 'text' }) => {
+    try {
+      // Enforce friend-only messaging: verify friendship exists and is accepted
+      const friendship = await Friendship.findOne({
+        $or: [
+          { requesterId: userId, recipientId: targetUserId },
+          { requesterId: targetUserId, recipientId: userId }
+        ],
+        status: 'accepted',
+      });
+
+      if (!friendship) {
+        console.warn(`[Socket.IO] Private message blocked: Users ${userId} and ${targetUserId} are not friends`);
+        socket.emit('error', { message: 'You can only message accepted friends' });
+        return;
+      }
+
       const chatId = getChatId(userId, targetUserId);
+      
+      // Ensure private conversation exists
+      let privateConv = await PrivateConversation.findOne({ conversationId: chatId });
+      if (!privateConv) {
+        // Create private conversation linked to friendship
+        privateConv = await createPrivateConversation(userId, targetUserId, friendship._id);
+      }
       
       let chat = await PrivateChat.findOne({ chatId });
       if (!chat) {
@@ -2760,6 +4794,27 @@ io.on('connection', (socket) => {
           participants: [userId, targetUserId],
           messages: []
         });
+      }
+      
+      // Determine message type if not provided
+      let messageType = type;
+      if (!messageType || !['text', 'emoji', 'image', 'file', 'audio'].includes(messageType)) {
+        if (voiceNote && voiceNote.url) {
+          messageType = 'audio';
+        } else if (attachments && attachments.length > 0) {
+          const firstAttachment = attachments[0];
+          if (firstAttachment.type && firstAttachment.type.startsWith('image/')) {
+            messageType = 'image';
+          } else if (firstAttachment.type && firstAttachment.type.startsWith('audio/')) {
+            messageType = 'audio';
+          } else {
+            messageType = 'file';
+          }
+        } else if (message.trim().match(/^[\p{Emoji}\s]+$/u)) {
+          messageType = 'emoji';
+        } else {
+          messageType = 'text';
+        }
       }
       
       const sanitizedAttachments = Array.isArray(attachments)
@@ -2787,6 +4842,7 @@ io.on('connection', (socket) => {
         chatId,
         userId,
         username,
+        type: messageType,
         message,
         attachments: sanitizedAttachments,
         voiceNote: sanitizedVoiceNote,
@@ -2929,6 +4985,53 @@ io.on('connection', (socket) => {
     }
   });
   
+  // Live Session Room handlers
+  socket.on('room:join', async ({roomId}) => {
+    try {
+      if (!roomId) return;
+      socket.join(`room:${roomId}`);
+      io.to(`room:${roomId}`).emit('room:user:joined', {
+        roomId,
+        userId: socket.userId || 'unknown',
+        username: socket.username || 'Unknown',
+      });
+    } catch (error) {
+      console.error('Room join error:', error);
+    }
+  });
+
+  socket.on('room:leave', async ({roomId}) => {
+    try {
+      if (!roomId) return;
+      socket.leave(`room:${roomId}`);
+      io.to(`room:${roomId}`).emit('room:user:left', {
+        roomId,
+        userId: socket.userId || 'unknown',
+        username: socket.username || 'Unknown',
+      });
+    } catch (error) {
+      console.error('Room leave error:', error);
+    }
+  });
+
+  socket.on('room:message', async ({roomId, message}) => {
+    try {
+      if (!roomId || !message) return;
+      io.to(`room:${roomId}`).emit('room:message', message);
+    } catch (error) {
+      console.error('Room message error:', error);
+    }
+  });
+
+  socket.on('room:typing', async ({roomId, userId, username}) => {
+    try {
+      if (!roomId) return;
+      socket.to(`room:${roomId}`).emit('room:typing', {userId, username});
+    } catch (error) {
+      console.error('Room typing error:', error);
+    }
+  });
+
   socket.on('disconnect', async () => {
     console.log('[Socket.IO] User disconnected:', socket.id);
     
@@ -2962,6 +5065,76 @@ io.on('connection', (socket) => {
 // ============================================
 
 // ========== USER CRUD ==========
+// GET /api/users/me - Get current user profile
+app.get('/api/users/me', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
+    const user = await User.findOne({ userId: req.user.userId }, { password: 0 });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Serialize user data
+    const userData = user.toObject();
+    res.json(userData);
+  } catch (error) {
+    console.error('[API] GET /api/users/me - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch user profile', details: error.message });
+  }
+});
+
+// PATCH /api/users/me - Update current user profile
+app.patch('/api/users/me', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection unavailable',
+        message: 'MongoDB is not connected. Please try again in a moment.'
+      });
+    }
+    
+    const user = await User.findOne({ userId: req.user.userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Allowed fields for update (only include fields that exist in User schema)
+    // Note: bio and socialLinks may not exist in schema - will be stored in onboardingAnswers if needed
+    const allowedUpdates = ['username', 'email', 'avatar', 'skills', 'skillLevel', 'onboardingAnswers'];
+    const updates = Object.keys(req.body).filter(key => allowedUpdates.includes(key));
+    
+    // Handle bio and socialLinks specially - store in onboardingAnswers if they don't exist as schema fields
+    if (req.body.bio !== undefined) {
+      if (!user.onboardingAnswers) user.onboardingAnswers = {};
+      user.onboardingAnswers.bio = req.body.bio;
+    }
+    if (req.body.socialLinks !== undefined) {
+      if (!user.onboardingAnswers) user.onboardingAnswers = {};
+      user.onboardingAnswers.socialLinks = req.body.socialLinks;
+    }
+    
+    updates.forEach(update => {
+      user[update] = req.body[update];
+    });
+    
+    await user.save();
+    
+    // Return updated user without password
+    const userData = user.toObject();
+    delete userData.password;
+    res.json(userData);
+  } catch (error) {
+    console.error('[API] PATCH /api/users/me - Error:', error);
+    res.status(500).json({ error: 'Failed to update user profile', details: error.message });
+  }
+});
+
 // GET /api/users/:userId - Get single user
 app.get('/api/users/:userId', async (req, res) => {
   try {
@@ -2989,7 +5162,7 @@ app.get('/api/users/:userId', async (req, res) => {
   }
 });
 
-// PUT /api/users/:userId - Update user
+// PUT /api/users/:userId - Update user (admin or self)
 app.put('/api/users/:userId', authenticateJWT, async (req, res) => {
   try {
     // Check MongoDB connection
@@ -3015,12 +5188,22 @@ app.put('/api/users/:userId', authenticateJWT, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const allowedUpdates = ['username', 'email', 'avatar', 'bio', 'skills', 'skillLevel', 'onboardingAnswers'];
+    const allowedUpdates = ['username', 'email', 'avatar', 'skills', 'skillLevel', 'onboardingAnswers'];
     const updates = Object.keys(req.body).filter(key => allowedUpdates.includes(key));
     
     updates.forEach(update => {
       user[update] = req.body[update];
     });
+    
+    // Handle bio and socialLinks specially - store in onboardingAnswers if they don't exist as schema fields
+    if (req.body.bio !== undefined) {
+      if (!user.onboardingAnswers) user.onboardingAnswers = {};
+      user.onboardingAnswers.bio = req.body.bio;
+    }
+    if (req.body.socialLinks !== undefined) {
+      if (!user.onboardingAnswers) user.onboardingAnswers = {};
+      user.onboardingAnswers.socialLinks = req.body.socialLinks;
+    }
     
     await user.save();
     const { password, ...userWithoutPassword } = user.toObject();
@@ -3070,6 +5253,933 @@ app.delete('/api/users/:userId', authenticateJWT, async (req, res) => {
 });
 
 // ========== PRIVATE CHAT CRUD ==========
+// GET /api/conversations - Get all conversations
+// Query params: 
+//   ?type=friend - friend-only conversations
+//   ?type=community - community/group conversations only
+//   ?type=private-circle - private circle/team conversations only
+app.get('/api/conversations', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/conversations - Database not connected, returning empty array');
+      return res.json([]);
+    }
+
+    const userId = req.user.userId;
+    const { type } = req.query; // 'friend', 'community', or 'private-circle'
+    const conversations = [];
+
+    // If type=friend, only return friend conversations
+    if (type === 'friend') {
+      // Get private conversations (friend-only)
+      const privateConversations = await PrivateConversation.find({
+        participants: userId,
+        type: 'friend',
+      })
+        .populate('friendshipId')
+        .sort({ updatedAt: -1 });
+
+      for (const conv of privateConversations) {
+        // Verify friendship is accepted
+        const friendship = await Friendship.findById(conv.friendshipId);
+        if (!friendship || friendship.status !== 'accepted') {
+          continue; // Skip if friendship not accepted
+        }
+
+        // Get the other participant's info
+        const otherParticipantId = conv.participants.find((id) => id !== userId);
+        let title = 'Friend';
+        let otherUserData = null;
+        if (otherParticipantId) {
+          const otherUser = await User.findOne(
+            { userId: otherParticipantId },
+            { username: 1, online: 1, lastSeen: 1 }
+          );
+          if (otherUser) {
+            title = otherUser.username;
+            otherUserData = {
+              userId: otherUser.userId,
+              username: otherUser.username,
+              online: otherUser.online || false,
+              lastSeen: otherUser.lastSeen,
+            };
+          }
+        }
+
+        // Get messages from PrivateChat (legacy) or create empty
+        const privateChat = await PrivateChat.findOne({ chatId: conv.conversationId });
+        const activeMessages = privateChat ? filterActiveMessages(privateChat.messages || []) : [];
+        const lastMessage =
+          activeMessages.length > 0
+            ? activeMessages.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))[0]
+            : null;
+
+        const unreadCount = activeMessages.filter(
+          (msg) => msg.userId !== userId && (!msg.readBy || !msg.readBy.includes(userId))
+        ).length;
+
+        conversations.push({
+          _id: conv.conversationId,
+          type: 'dm',
+          conversationType: 'friend',
+          title,
+          participants: conv.participants,
+          otherParticipant: otherUserData,
+          lastMessage: lastMessage
+            ? {
+                content: lastMessage.message || '',
+                senderId: lastMessage.userId,
+                senderName: lastMessage.username,
+                timestamp: lastMessage.timestamp,
+              }
+            : null,
+          unreadCount,
+          pinnedBy: [],
+          archivedBy: [],
+          locked: false,
+          updatedAt: conv.updatedAt ? conv.updatedAt.toISOString() : conv.createdAt.toISOString(),
+        });
+      }
+
+      console.log(`[API] GET /api/conversations?type=friend - Returning ${conversations.length} friend conversations`);
+      return res.json(conversations);
+    }
+
+    // Get private chats (DM conversations) - legacy support
+    const privateChats = await PrivateChat.find({
+      participants: userId,
+    }).sort({ updatedAt: -1 });
+
+    for (const chat of privateChats) {
+      // Get the other participant's info for DM title
+      const otherParticipantId = chat.participants.find(id => id !== userId);
+      let title = 'Private conversation';
+      let otherUserData = null;
+      if (otherParticipantId) {
+        const otherUser = await User.findOne({ userId: otherParticipantId }, { username: 1, online: 1, lastSeen: 1 });
+        if (otherUser) {
+          title = otherUser.username;
+          otherUserData = {
+            userId: otherUser.userId,
+            username: otherUser.username,
+            online: otherUser.online || false,
+            lastSeen: otherUser.lastSeen,
+          };
+        }
+      }
+
+      // Get last message
+      const activeMessages = filterActiveMessages(chat.messages || []);
+      const lastMessage = activeMessages.length > 0 
+        ? activeMessages.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))[0]
+        : null;
+
+      // Calculate unread count
+      const unreadCount = activeMessages.filter(msg => 
+        msg.userId !== userId && 
+        (!msg.readBy || !msg.readBy.includes(userId))
+      ).length;
+
+      conversations.push({
+        _id: chat.chatId,
+        type: 'dm',
+        conversationType: 'friend',
+        title,
+        participants: chat.participants,
+        otherParticipant: otherUserData,
+        lastMessage: lastMessage ? {
+          content: lastMessage.message || '',
+          senderId: lastMessage.userId,
+          senderName: lastMessage.username,
+          timestamp: lastMessage.timestamp,
+        } : null,
+        unreadCount,
+        pinnedBy: [],
+        archivedBy: [],
+        locked: false,
+        updatedAt: chat.updatedAt ? chat.updatedAt.toISOString() : chat.createdAt.toISOString()
+      });
+    }
+
+    // Get tech groups where user is a member (community conversations)
+    // Only include if type is 'community' or not specified (backward compatibility)
+    if (type === 'community' || !type) {
+      const techGroups = await TechGroup.find({
+        members: userId,
+      }).sort({ updatedAt: -1 });
+
+      for (const group of techGroups) {
+        // Get last message
+        const activeMessages = filterActiveMessages(group.messages || []);
+        const lastMessage = activeMessages.length > 0
+          ? activeMessages.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))[0]
+          : null;
+
+        // Calculate unread count
+        const unreadCount = activeMessages.filter(msg => 
+          msg.userId !== userId && 
+          (!msg.readBy || !msg.readBy.includes(userId))
+        ).length;
+
+        // Determine conversation type
+        const conversationType = group.type === 'classroom' ? 'room' : 'community';
+
+        conversations.push({
+          _id: group.groupId,
+          type: 'group',
+          conversationType,
+          title: group.name,
+          participants: group.members || [],
+          lastMessage: lastMessage ? {
+            content: lastMessage.message || '',
+            senderId: lastMessage.userId,
+            senderName: lastMessage.username,
+            timestamp: lastMessage.timestamp,
+          } : null,
+          unreadCount,
+          pinnedBy: [],
+          archivedBy: [],
+          locked: group.locked || false,
+          updatedAt: group.updatedAt ? group.updatedAt.toISOString() : group.createdAt.toISOString(),
+        });
+      }
+    }
+
+    // Get private circles where user is a member
+    // Only include if explicitly requested (type=private-circle) or if no type filter (backward compatibility)
+    // NEVER include in friend-only requests (type=friend)
+    if (type === 'private-circle' || (type !== 'friend' && !type)) {
+      const privateCircles = await PrivateCircle.find({
+        'members.userId': userId,
+      }).sort({ updatedAt: -1 });
+
+      for (const circle of privateCircles) {
+        // Get last message
+        const activeMessages = filterActiveMessages(circle.messages || []);
+        const lastMessage = activeMessages.length > 0
+          ? activeMessages.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))[0]
+          : null;
+
+        // Calculate unread count
+        const unreadCount = activeMessages.filter(msg => 
+          msg.userId !== userId && 
+          (!msg.readBy || !msg.readBy.includes(userId))
+        ).length;
+
+        conversations.push({
+          _id: circle.circleId,
+          type: 'group',
+          conversationType: 'private-circle',
+          title: circle.name,
+          description: circle.description,
+          participants: circle.members.map((m) => m.userId),
+          createdBy: circle.createdBy,
+          lastMessage: lastMessage ? {
+            content: lastMessage.message || '',
+            senderId: lastMessage.userId,
+            senderName: lastMessage.username,
+            timestamp: lastMessage.timestamp,
+          } : null,
+          unreadCount,
+          pinnedBy: [],
+          archivedBy: [],
+          locked: false,
+          updatedAt: circle.updatedAt ? circle.updatedAt.toISOString() : circle.createdAt.toISOString(),
+        });
+      }
+    }
+
+    // Sort all conversations by updatedAt (most recent first)
+    conversations.sort((a, b) => {
+      const dateA = new Date(a.updatedAt);
+      const dateB = new Date(b.updatedAt);
+      return dateB - dateA;
+    });
+
+    console.log(`[API] GET /api/conversations${type ? `?type=${type}` : ''} - Returning ${conversations.length} conversations for user ${userId}`);
+    res.json(conversations);
+  } catch (error) {
+    console.error('[API] GET /api/conversations - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch conversations' });
+  }
+});
+
+// ========== PRIVATE CIRCLE ENDPOINTS ==========
+// POST /api/private-circles - Create a new private circle/team
+app.post('/api/private-circles', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const { name, description = '', memberIds = [] } = req.body;
+    const userId = req.user.userId;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Circle name is required' });
+    }
+
+    // Validate member IDs (if provided)
+    const validMemberIds = Array.isArray(memberIds) ? memberIds.filter((id) => id && id !== userId) : [];
+    
+    // Verify all member IDs exist
+    if (validMemberIds.length > 0) {
+      const existingUsers = await User.find({ userId: { $in: validMemberIds } }).select('userId');
+      const existingIds = existingUsers.map((u) => u.userId);
+      const invalidIds = validMemberIds.filter((id) => !existingIds.includes(id));
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ error: `Invalid user IDs: ${invalidIds.join(', ')}` });
+      }
+    }
+
+    const circleId = generateId();
+    const members = [
+      { userId, role: 'admin' }, // Creator is admin
+      ...validMemberIds.map((id) => ({ userId: id, role: 'member' })),
+    ];
+
+    const circle = new PrivateCircle({
+      circleId,
+      name: name.trim(),
+      description: description.trim(),
+      createdBy: userId,
+      members,
+      type: 'private-circle',
+      messages: [],
+    });
+
+    await circle.save();
+
+    // Emit socket event
+    if (io) {
+      members.forEach((member) => {
+        const memberSocket = userSockets.get(member.userId);
+        if (memberSocket) {
+          io.to(memberSocket).emit('circle:created', {
+            circleId: circle.circleId,
+            name: circle.name,
+            createdBy: userId,
+          });
+        }
+      });
+    }
+
+    res.json({
+      _id: circle.circleId,
+      circleId: circle.circleId,
+      name: circle.name,
+      description: circle.description,
+      createdBy: circle.createdBy,
+      members: circle.members,
+      type: 'private-circle',
+      createdAt: circle.createdAt,
+    });
+  } catch (error) {
+    console.error('[API] POST /api/private-circles - Error:', error);
+    res.status(500).json({ error: 'Failed to create private circle' });
+  }
+});
+
+// GET /api/private-circles - Get all private circles user is a member of
+app.get('/api/private-circles', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const userId = req.user.userId;
+    const circles = await PrivateCircle.find({
+      'members.userId': userId,
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    res.json(circles);
+  } catch (error) {
+    console.error('[API] GET /api/private-circles - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch private circles' });
+  }
+});
+
+// GET /api/private-circles/:circleId - Get a specific private circle
+app.get('/api/private-circles/:circleId', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const { circleId } = req.params;
+    const userId = req.user.userId;
+
+    const circle = await PrivateCircle.findOne({ circleId });
+    if (!circle) {
+      return res.status(404).json({ error: 'Private circle not found' });
+    }
+
+    // Verify user is a member
+    const isMember = circle.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return res.status(403).json({ error: 'You are not a member of this circle' });
+    }
+
+    res.json(circle);
+  } catch (error) {
+    console.error('[API] GET /api/private-circles/:circleId - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch private circle' });
+  }
+});
+
+// POST /api/private-circles/:circleId/members - Add members to a circle
+app.post('/api/private-circles/:circleId/members', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const { circleId } = req.params;
+    const { userIds, username, email } = req.body;
+    const currentUserId = req.user.userId;
+
+    const circle = await PrivateCircle.findOne({ circleId });
+    if (!circle) {
+      return res.status(404).json({ error: 'Private circle not found' });
+    }
+
+    // Verify user is admin
+    const currentMember = circle.members.find((m) => m.userId === currentUserId);
+    if (!currentMember || currentMember.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can add members' });
+    }
+
+    let targetUserIds = [];
+
+    // Handle userIds array
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      targetUserIds = userIds.filter((id) => id && id !== currentUserId);
+    }
+
+    // Handle username or email search
+    if (username || email) {
+      const identifier = username || email;
+      const user = await User.findOne({
+        $or: [
+          { username: { $regex: new RegExp(`^${identifier}$`, 'i') } },
+          { email: { $regex: new RegExp(`^${identifier}$`, 'i') } },
+        ],
+      });
+      if (!user) {
+        return res.status(404).json({ error: `User not found: ${identifier}` });
+      }
+      if (user.userId === currentUserId) {
+        return res.status(400).json({ error: 'You cannot add yourself to the circle' });
+      }
+      targetUserIds.push(user.userId);
+    }
+
+    if (targetUserIds.length === 0) {
+      return res.status(400).json({ error: 'No valid user IDs provided' });
+    }
+
+    // Verify users exist and are not already members
+    const existingUsers = await User.find({ userId: { $in: targetUserIds } }).select('userId');
+    const existingIds = existingUsers.map((u) => u.userId);
+    const newMemberIds = targetUserIds.filter(
+      (id) => !circle.members.some((m) => m.userId === id) && existingIds.includes(id)
+    );
+
+    if (newMemberIds.length === 0) {
+      return res.status(400).json({ error: 'All users are already members or invalid' });
+    }
+
+    // Add new members
+    newMemberIds.forEach((userId) => {
+      circle.members.push({ userId, role: 'member' });
+    });
+
+    await circle.save();
+
+    // Emit socket events
+    if (io) {
+      newMemberIds.forEach((userId) => {
+        const memberSocket = userSockets.get(userId);
+        if (memberSocket) {
+          io.to(memberSocket).emit('circle:member:added', {
+            circleId: circle.circleId,
+            circleName: circle.name,
+            addedBy: currentUserId,
+          });
+        }
+      });
+    }
+
+    res.json(circle);
+  } catch (error) {
+    console.error('[API] POST /api/private-circles/:circleId/members - Error:', error);
+    res.status(500).json({ error: 'Failed to add members' });
+  }
+});
+
+// DELETE /api/private-circles/:circleId/members/:memberId - Remove a member from circle
+app.delete('/api/private-circles/:circleId/members/:memberId', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const { circleId, memberId } = req.params;
+    const currentUserId = req.user.userId;
+
+    const circle = await PrivateCircle.findOne({ circleId });
+    if (!circle) {
+      return res.status(404).json({ error: 'Private circle not found' });
+    }
+
+    // Verify user is admin or removing themselves
+    const currentMember = circle.members.find((m) => m.userId === currentUserId);
+    const isAdmin = currentMember && currentMember.role === 'admin';
+    const isSelfRemoval = memberId === currentUserId;
+
+    if (!isAdmin && !isSelfRemoval) {
+      return res.status(403).json({ error: 'Only admins can remove other members' });
+    }
+
+    // Prevent removing the last admin
+    const admins = circle.members.filter((m) => m.role === 'admin');
+    const targetMember = circle.members.find((m) => m.userId === memberId);
+    if (targetMember && targetMember.role === 'admin' && admins.length === 1) {
+      return res.status(400).json({ error: 'Cannot remove the last admin' });
+    }
+
+    // Remove member
+    circle.members = circle.members.filter((m) => m.userId !== memberId);
+    await circle.save();
+
+    // Emit socket event
+    if (io) {
+      const memberSocket = userSockets.get(memberId);
+      if (memberSocket) {
+        io.to(memberSocket).emit('circle:member:removed', {
+          circleId: circle.circleId,
+          circleName: circle.name,
+        });
+      }
+    }
+
+    res.json({ success: true, message: 'Member removed successfully' });
+  } catch (error) {
+    console.error('[API] DELETE /api/private-circles/:circleId/members/:memberId - Error:', error);
+    res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
+// DELETE /api/private-circles/:circleId - Delete a private circle
+app.delete('/api/private-circles/:circleId', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected' });
+    }
+
+    const { circleId } = req.params;
+    const userId = req.user.userId;
+
+    const circle = await PrivateCircle.findOne({ circleId });
+    if (!circle) {
+      return res.status(404).json({ error: 'Private circle not found' });
+    }
+
+    // Only creator can delete
+    if (circle.createdBy !== userId) {
+      return res.status(403).json({ error: 'Only the creator can delete the circle' });
+    }
+
+    await PrivateCircle.deleteOne({ circleId });
+
+    // Emit socket event
+    if (io) {
+      circle.members.forEach((member) => {
+        const memberSocket = userSockets.get(member.userId);
+        if (memberSocket) {
+          io.to(memberSocket).emit('circle:deleted', {
+            circleId: circle.circleId,
+          });
+        }
+      });
+    }
+
+    res.json({ success: true, message: 'Private circle deleted successfully' });
+  } catch (error) {
+    console.error('[API] DELETE /api/private-circles/:circleId - Error:', error);
+    res.status(500).json({ error: 'Failed to delete private circle' });
+  }
+});
+
+// POST /api/conversations - Create a new conversation (for friend-to-friend chats)
+app.post('/api/conversations', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({error: 'Database not connected'});
+    }
+
+    const {participantId} = req.body;
+    const userId = req.user.userId;
+
+    if (!participantId || participantId === userId) {
+      return res.status(400).json({error: 'Valid participant ID is required'});
+    }
+
+    // Check if participants are friends
+    const currentUser = await User.findOne({userId});
+    if (!currentUser || !currentUser.friends?.includes(participantId)) {
+      return res.status(403).json({error: 'You can only start conversations with friends'});
+    }
+
+    // Check if conversation already exists
+    const existingChat = await PrivateChat.findOne({
+      participants: {$all: [userId, participantId], $size: 2}
+    });
+
+    if (existingChat) {
+      // Return existing conversation
+      const otherUser = await User.findOne({userId: participantId}, {username: 1, online: 1, lastSeen: 1});
+      return res.json({
+        _id: existingChat.chatId,
+        type: 'dm',
+        conversationType: 'friend',
+        title: otherUser?.username || 'Private conversation',
+        participants: existingChat.participants,
+        otherParticipant: otherUser ? {
+          userId: otherUser.userId,
+          username: otherUser.username,
+          online: otherUser.online || false,
+          lastSeen: otherUser.lastSeen,
+        } : null,
+        lastMessage: null,
+        unreadCount: 0,
+        pinnedBy: [],
+        archivedBy: [],
+        locked: false,
+        updatedAt: existingChat.updatedAt?.toISOString() || existingChat.createdAt.toISOString(),
+      });
+    }
+
+    // Create new conversation
+    const chatId = generateId();
+    const newChat = new PrivateChat({
+      chatId,
+      participants: [userId, participantId],
+      messages: [],
+    });
+
+    await newChat.save();
+
+    const otherUser = await User.findOne({userId: participantId}, {username: 1, online: 1, lastSeen: 1});
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('conversation:created', {
+        _id: chatId,
+        type: 'dm',
+        conversationType: 'friend',
+      });
+    }
+
+    res.status(201).json({
+      _id: chatId,
+      type: 'dm',
+      conversationType: 'friend',
+      title: otherUser?.username || 'Private conversation',
+      participants: [userId, participantId],
+      otherParticipant: otherUser ? {
+        userId: otherUser.userId,
+        username: otherUser.username,
+        online: otherUser.online || false,
+        lastSeen: otherUser.lastSeen,
+      } : null,
+      lastMessage: null,
+      unreadCount: 0,
+      pinnedBy: [],
+      archivedBy: [],
+      locked: false,
+      updatedAt: newChat.createdAt.toISOString(),
+    });
+  } catch (error) {
+    console.error('Create conversation error:', error);
+    res.status(500).json({error: 'Failed to create conversation'});
+  }
+});
+
+// GET /api/conversations/:conversationId/messages - Get messages for a conversation (DM or group)
+app.get('/api/conversations/:conversationId/messages', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/conversations/:conversationId/messages - Database not connected, returning empty array');
+      return res.json({ data: [], nextCursor: undefined });
+    }
+
+    const { conversationId } = req.params;
+    const userId = req.user.userId;
+    const { limit = '30', cursor } = req.query;
+    const limitNum = Math.min(parseInt(limit, 10) || 30, 100);
+
+    // Try to find as private circle first
+    let privateCircle = await PrivateCircle.findOne({ circleId: conversationId });
+    if (privateCircle) {
+      const isMember = privateCircle.members.some((m) => m.userId === userId);
+      if (!isMember) {
+        return res.status(403).json({ error: 'You are not a member of this circle' });
+      }
+
+      let messages = filterActiveMessages(privateCircle.messages || []);
+      messages.sort((a, b) => {
+        const dateA = new Date(a.timestamp || 0);
+        const dateB = new Date(b.timestamp || 0);
+        return dateB - dateA;
+      });
+
+      const cursorIndex = cursor ? messages.findIndex((m) => m.messageId === cursor) : -1;
+      const startIndex = cursorIndex >= 0 ? cursorIndex + 1 : 0;
+      const limitedMessages = messages.slice(startIndex, startIndex + limitNum);
+
+      const serializedMessages = limitedMessages.map((msg) => ({
+        _id: msg.messageId,
+        conversationId: conversationId,
+        conversationType: 'private-circle',
+        senderId: msg.userId,
+        content: msg.message || '',
+        type: msg.type || 'text',
+        media: msg.attachments?.map((att) => ({
+          key: att.url,
+          url: att.url,
+          type: att.type?.startsWith('image/') ? 'image' : att.type?.startsWith('audio/') ? 'audio' : 'file',
+          filename: att.name,
+          size: att.size,
+        })) || [],
+        voiceNote: msg.voiceNote?.url ? {
+          url: msg.voiceNote.url,
+          duration: msg.voiceNote.duration,
+        } : undefined,
+        reactions: Object.fromEntries(msg.reactions || new Map()),
+        readBy: msg.readBy || [],
+        createdAt: msg.timestamp?.toISOString() || new Date().toISOString(),
+      }));
+
+      const nextCursor = limitedMessages.length === limitNum && startIndex + limitNum < messages.length
+        ? limitedMessages[limitedMessages.length - 1].messageId
+        : undefined;
+
+      console.log(`[API] GET /api/conversations/${conversationId}/messages - Returning ${serializedMessages.length} messages for private circle`);
+      return res.json({ data: serializedMessages, nextCursor });
+    }
+
+    // Try to find as private chat (friend DM)
+    let privateChat = await PrivateChat.findOne({ chatId: conversationId });
+    if (privateChat && privateChat.participants.includes(userId)) {
+      // It's a private chat, return messages
+      let messages = filterActiveMessages(privateChat.messages || []);
+      
+      // Sort by timestamp (newest first) for pagination
+      messages.sort((a, b) => {
+        const dateA = new Date(a.timestamp || 0);
+        const dateB = new Date(b.timestamp || 0);
+        return dateB - dateA;
+      });
+
+      // Convert to frontend Message format
+      const formattedMessages = messages.map((msg) => ({
+        _id: msg.messageId,
+        conversationId: conversationId,
+        senderId: msg.userId,
+        content: msg.message || '',
+        media: (msg.attachments || []).map(att => ({
+          key: att.url,
+          url: att.url,
+          type: att.type?.startsWith('image/') ? 'image' : att.type?.startsWith('video/') ? 'video' : att.type?.startsWith('audio/') ? 'audio' : 'file',
+          mimeType: att.type,
+          size: att.size || 0
+        })),
+        replyToMessageId: undefined,
+        editedAt: undefined,
+        deletedAt: undefined,
+        reactions: (msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : {},
+        deliveredTo: [],
+        readBy: msg.readBy || [],
+        isPinned: false,
+        isEncrypted: false,
+        createdAt: msg.timestamp || new Date().toISOString(),
+        lastModified: msg.timestamp || new Date().toISOString()
+      }));
+
+      // Apply cursor-based pagination if provided
+      let resultMessages = formattedMessages;
+      if (cursor) {
+        const cursorIndex = resultMessages.findIndex(m => m._id === cursor);
+        if (cursorIndex !== -1) {
+          resultMessages = resultMessages.slice(cursorIndex + 1);
+        }
+      }
+
+      // Limit results
+      const limitedMessages = resultMessages.slice(0, limitNum);
+      const nextCursor = limitedMessages.length === limitNum && resultMessages.length > limitNum 
+        ? limitedMessages[limitedMessages.length - 1]._id 
+        : undefined;
+
+      // Reverse to show oldest first (chat order)
+      limitedMessages.reverse();
+
+      console.log(`[API] GET /api/conversations/${conversationId}/messages - Returning ${limitedMessages.length} messages for private chat`);
+      return res.json({
+        data: limitedMessages,
+        nextCursor
+      });
+    }
+
+    // Try to find as tech group
+    let techGroup = await TechGroup.findOne({ groupId: conversationId });
+    if (techGroup && techGroup.members.includes(userId)) {
+      // It's a tech group, return messages
+      let messages = filterActiveMessages(techGroup.messages || []);
+      
+      // Sort by timestamp (newest first) for pagination
+      messages.sort((a, b) => {
+        const dateA = new Date(a.timestamp || 0);
+        const dateB = new Date(b.timestamp || 0);
+        return dateB - dateA;
+      });
+
+      // Convert to frontend Message format
+      const formattedMessages = messages.map((msg) => ({
+        _id: msg.messageId,
+        conversationId: conversationId,
+        senderId: msg.userId,
+        content: msg.message || '',
+        media: (msg.attachments || []).map(att => ({
+          key: att.url,
+          url: att.url,
+          type: att.type?.startsWith('image/') ? 'image' : att.type?.startsWith('video/') ? 'video' : att.type?.startsWith('audio/') ? 'audio' : 'file',
+          mimeType: att.type,
+          size: att.size || 0
+        })),
+        replyToMessageId: undefined,
+        editedAt: undefined,
+        deletedAt: undefined,
+        reactions: (msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : {},
+        deliveredTo: [],
+        readBy: msg.readBy || [],
+        isPinned: false,
+        isEncrypted: false,
+        createdAt: msg.timestamp || new Date().toISOString(),
+        lastModified: msg.timestamp || new Date().toISOString()
+      }));
+
+      // Apply cursor-based pagination if provided
+      let resultMessages = formattedMessages;
+      if (cursor) {
+        const cursorIndex = resultMessages.findIndex(m => m._id === cursor);
+        if (cursorIndex !== -1) {
+          resultMessages = resultMessages.slice(cursorIndex + 1);
+        }
+      }
+
+      // Limit results
+      const limitedMessages = resultMessages.slice(0, limitNum);
+      const nextCursor = limitedMessages.length === limitNum && resultMessages.length > limitNum 
+        ? limitedMessages[limitedMessages.length - 1]._id 
+        : undefined;
+
+      // Reverse to show oldest first (chat order)
+      limitedMessages.reverse();
+
+      console.log(`[API] GET /api/conversations/${conversationId}/messages - Returning ${limitedMessages.length} messages for tech group`);
+      return res.json({
+        data: limitedMessages,
+        nextCursor
+      });
+    }
+
+    // Conversation not found or user not a participant
+    return res.status(404).json({ error: 'Conversation not found or access denied' });
+  } catch (error) {
+    console.error('[API] GET /api/conversations/:conversationId/messages - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+// GET /api/classrooms - Get all classrooms (tech groups with type 'classroom')
+app.get('/api/classrooms', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/classrooms - Database not connected, returning empty array');
+      return res.json([]);
+    }
+
+    const userId = req.user.userId;
+    
+    // Get all tech groups with type 'classroom'
+    const classroomGroups = await TechGroup.find({
+      type: 'classroom'
+    }).sort({ createdAt: -1 });
+
+    // Format as Classroom objects expected by frontend
+    const classrooms = await Promise.all(classroomGroups.map(async (group) => {
+      // Get instructor info (createdBy user)
+      const instructor = await User.findOne({ userId: group.createdBy }, { username: 1, userId: 1 });
+      
+      // Convert messages to sessions (simplified - assuming each message is a session announcement)
+      // In a real implementation, sessions would be a separate model/field
+      // For now, we'll create a basic session structure
+      const sessions = group.messages
+        .filter(msg => msg.userId === 'system' || msg.userId === group.createdBy)
+        .slice(0, 10) // Limit to recent sessions
+        .map((msg, index) => ({
+          _id: msg.messageId || `session-${index}`,
+          title: msg.message?.includes('**') ? msg.message.match(/\*\*([^*]+)\*\*/)?.[1] || 'Class Session' : 'Class Session',
+          description: msg.message || '',
+          instructor: group.createdBy,
+          date: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString(),
+          durationMinutes: 60,
+          link: undefined,
+          materials: [],
+          participants: group.members || [],
+          attendance: []
+        }));
+
+      return {
+        _id: group.groupId,
+        title: group.name,
+        description: group.description || '',
+        instructor: instructor ? {
+          _id: instructor.userId,
+          username: instructor.username,
+          avatarUrl: undefined
+        } : {
+          _id: group.createdBy,
+          username: 'Instructor',
+          avatarUrl: undefined
+        },
+        schedule: sessions.length > 0 ? sessions : [{
+          _id: 'default-session',
+          title: 'Upcoming Session',
+          description: 'Check back soon for session details',
+          instructor: group.createdBy,
+          date: new Date().toISOString(),
+          durationMinutes: 60,
+          link: undefined,
+          materials: [],
+          participants: group.members || [],
+          attendance: []
+        }]
+      };
+    }));
+
+    console.log(`[API] GET /api/classrooms - Returning ${classrooms.length} classrooms`);
+    res.json(classrooms);
+  } catch (error) {
+    console.error('[API] GET /api/classrooms - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch classrooms' });
+  }
+});
+
 // GET /api/private-chats - Get all private chats for user
 app.get('/api/private-chats', authenticateJWT, async (req, res) => {
   try {
@@ -3550,7 +6660,7 @@ app.delete('/api/admin/violations/:violationId', authenticateJWT, requireAdmin, 
   }
 });
 
-// Knowledge API endpoint (safe stub - returns empty array if no data)
+// Knowledge API endpoint - returns empty array (no Knowledge model yet, but keeps endpoint working)
 app.get('/api/knowledge', async (req, res) => {
   try {
     console.log('[API] GET /api/knowledge - Request received', req.query);
@@ -3572,7 +6682,167 @@ app.get('/api/knowledge', async (req, res) => {
   }
 });
 
-// Health check and root route
+// POST /api/knowledge/:id/like - Like a knowledge post (stub - returns 501)
+app.post('/api/knowledge/:id/like', authenticateJWT, async (req, res) => {
+  try {
+    console.log('[API] POST /api/knowledge/:id/like - Request received (not implemented)');
+    res.status(501).json({ 
+      error: 'Not implemented',
+      message: 'Knowledge like feature is not yet implemented. Knowledge model needs to be created first.'
+    });
+  } catch (error) {
+    console.error('[API] POST /api/knowledge/:id/like - Error:', error);
+    res.status(500).json({ error: 'Failed to like knowledge post' });
+  }
+});
+
+// POST /api/knowledge/:id/bookmark - Bookmark a knowledge post (stub - returns 501)
+app.post('/api/knowledge/:id/bookmark', authenticateJWT, async (req, res) => {
+  try {
+    console.log('[API] POST /api/knowledge/:id/bookmark - Request received (not implemented)');
+    res.status(501).json({ 
+      error: 'Not implemented',
+      message: 'Knowledge bookmark feature is not yet implemented. Knowledge model needs to be created first.'
+    });
+  } catch (error) {
+    console.error('[API] POST /api/knowledge/:id/bookmark - Error:', error);
+    res.status(500).json({ error: 'Failed to bookmark knowledge post' });
+  }
+});
+
+// GET /api/knowledge/leaderboard - Get knowledge engagement leaderboard
+app.get('/api/knowledge/leaderboard', authenticateJWT, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[API] GET /api/knowledge/leaderboard - Database not connected, returning empty array');
+      return res.json([]);
+    }
+
+    // Calculate engagement metrics from tech groups (messages sent = engagement)
+    const techGroups = await TechGroup.find({});
+    const userEngagement = {};
+
+    // Count messages per user
+    techGroups.forEach(group => {
+      if (Array.isArray(group.messages)) {
+        group.messages.forEach(msg => {
+          if (msg.userId && msg.userId !== 'system') {
+            if (!userEngagement[msg.userId]) {
+              userEngagement[msg.userId] = {
+                userId: msg.userId,
+                messagesSent: 0,
+                materialsShared: 0,
+                classesAttended: 0,
+                badges: [],
+                xp: 0
+              };
+            }
+            userEngagement[msg.userId].messagesSent += 1;
+          }
+        });
+      }
+    });
+
+    // Calculate XP (simple formula: messages * 10)
+    Object.values(userEngagement).forEach(engagement => {
+      engagement.xp = engagement.messagesSent * 10;
+    });
+
+    // Get user details and format as EngagementMetric
+    const leaderboardEntries = await Promise.all(
+      Object.values(userEngagement).map(async (engagement) => {
+        const user = await User.findOne({ userId: engagement.userId }).select('username userId skills skillLevel');
+        if (!user) return null;
+
+        return {
+          userId: {
+            _id: user.userId || user._id?.toString(),
+            username: user.username || 'Unknown',
+            avatarUrl: undefined,
+            skills: user.skills || [],
+            skillLevel: user.skillLevel || 'Beginner'
+          },
+          messagesSent: engagement.messagesSent,
+          materialsShared: engagement.materialsShared,
+          classesAttended: engagement.classesAttended,
+          badges: engagement.badges,
+          xp: engagement.xp
+        };
+      })
+    );
+
+    // Filter out nulls and sort by XP (descending)
+    const leaderboard = leaderboardEntries
+      .filter(entry => entry !== null)
+      .sort((a, b) => b.xp - a.xp);
+
+    console.log(`[API] GET /api/knowledge/leaderboard - Returning ${leaderboard.length} entries`);
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('[API] GET /api/knowledge/leaderboard - Error:', error);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// Health check endpoint with detailed status
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbStatus = mongoose.connection.readyState;
+    const dbStatusText = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting',
+    }[dbStatus] || 'unknown';
+    
+    // Check collections exist
+    const collections = [];
+    if (dbStatus === 1) {
+      try {
+        const db = mongoose.connection.db;
+        const collectionList = await db.listCollections().toArray();
+        collections.push(...collectionList.map(c => c.name));
+      } catch (err) {
+        console.error('[Health] Error listing collections:', err);
+      }
+    }
+    
+    const io = req.app.get('io');
+    const socketInitialized = !!io;
+    
+    const uptimeSeconds = process.uptime();
+    const uptimeMinutes = Math.floor(uptimeSeconds / 60);
+    const uptimeHours = Math.floor(uptimeMinutes / 60);
+    const uptimeFormatted = `${uptimeHours}h ${uptimeMinutes % 60}m ${Math.floor(uptimeSeconds % 60)}s`;
+    
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      server: {
+        uptime: uptimeFormatted,
+        uptimeSeconds: Math.floor(uptimeSeconds),
+      },
+      database: {
+        status: dbStatusText,
+        connected: dbStatus === 1,
+        collections: collections.sort(),
+        collectionCount: collections.length,
+      },
+      socket: {
+        initialized: socketInitialized,
+      },
+    });
+  } catch (error) {
+    console.error('[Health] Error:', error);
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+    });
+  }
+});
+
+// Legacy health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -3622,7 +6892,7 @@ app.use((err, req, res, next) => {
 
 // Start HTTP server
 // MongoDB connection is handled in database.js import above
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 // Function to start server
 const startHTTPServer = () => {
@@ -3644,19 +6914,204 @@ const startHTTPServer = () => {
   });
 };
 
+// Ensure database collections are initialized (MongoDB creates them automatically on first write)
+const ensureCollections = async () => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[Collections] MongoDB not connected, skipping collection check');
+      return;
+    }
+    
+    const db = mongoose.connection.db;
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    
+    console.log('[Collections] Existing collections:', collectionNames.length > 0 ? collectionNames.join(', ') : 'none');
+    
+    // Collections will be created automatically on first document save
+    // Models are already imported, so they're registered with mongoose
+    console.log('[Collections] All models registered. Collections will be created automatically on first document save.');
+  } catch (error) {
+    console.error('[Collections] Error checking collections:', error);
+    // Don't fail startup if collection check fails
+  }
+};
+
+// Seed assessment questions into database if collection is empty
+const seedAssessmentQuestions = async () => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('[Seed] MongoDB not connected, skipping assessment questions seed');
+      return;
+    }
+
+    const questionCount = await AssessmentQuestion.countDocuments();
+    if (questionCount > 0) {
+      console.log(`[Seed] Assessment questions already exist (${questionCount} questions), skipping seed`);
+      return;
+    }
+
+    console.log('[Seed] Seeding assessment questions into database...');
+    let seededCount = 0;
+
+    // Get all tech groups to link questions
+    const techGroups = await TechGroup.find({}).lean();
+    console.log(`[Seed] Found ${techGroups.length} tech groups to link questions`);
+    
+    // Create a mapping of skill -> groupIds/slugs
+    const skillToGroups = {};
+    for (const group of techGroups) {
+      const techSkill = extractTechSkillFromGroup(group);
+      if (techSkill) {
+        const skillKey = techSkill.toLowerCase().replace(/\s+/g, '-');
+        const normalizedSkill = skillKey === 'full-stack' || skillKey === 'fullstack' ? 'fullstack' : skillKey;
+        if (!skillToGroups[normalizedSkill]) {
+          skillToGroups[normalizedSkill] = [];
+        }
+        // Create normalized slug from group name
+        const groupSlug = (group.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        skillToGroups[normalizedSkill].push({
+          groupId: group.groupId,
+          slug: groupSlug || group.groupId.toLowerCase()
+        });
+      }
+    }
+    
+    console.log('[Seed] Skill to groups mapping:', Object.keys(skillToGroups).map(s => `${s}: ${skillToGroups[s].length} groups`));
+    
+    // Iterate through ASSESSMENT_QUESTIONS and insert into database
+    // Create questions linked to ALL groups of each skill (not just first group)
+    for (const [skillKey, levels] of Object.entries(ASSESSMENT_QUESTIONS)) {
+      const linkedGroups = skillToGroups[skillKey] || [];
+      
+      for (const [level, questions] of Object.entries(levels)) {
+        if (Array.isArray(questions) && questions.length > 0) {
+          for (const q of questions) {
+            try {
+              // Validate question has options
+              if (!q.options || q.options.length < 2) {
+                console.warn(`[Seed] Skipping question ${q.id} - insufficient options`);
+                continue;
+              }
+
+              // Create question linked to ALL groups of this skill
+              // Each group gets the same questions, but questions are explicitly linked to groups
+              if (linkedGroups.length > 0) {
+                // Link to ALL groups of this skill
+                for (const linkedGroup of linkedGroups) {
+                  // Check if this specific question-group combination already exists
+                  const exists = await AssessmentQuestion.findOne({ 
+                    question: q.question,
+                    techGroupId: linkedGroup.groupId
+                  });
+                  if (exists) {
+                    continue;
+                  }
+
+                  const questionDoc = new AssessmentQuestion({
+                    questionId: `${q.id}-${linkedGroup.groupId}`, // Unique ID per group
+                    techSkill: skillKey,
+                    level: level,
+                    question: q.question,
+                    options: q.options || [],
+                    correctAnswer: q.options[0] || '', // First option is correct answer
+                    techGroupId: linkedGroup.groupId, // Link to specific group
+                    techGroupSlug: linkedGroup.slug,
+                    isActive: true,
+                  });
+
+                  await questionDoc.save();
+                  seededCount++;
+                }
+              } else {
+                // No groups found for this skill - create question with skill link only (fallback)
+                const exists = await AssessmentQuestion.findOne({ 
+                  questionId: q.id,
+                  techSkill: skillKey,
+                  techGroupId: { $exists: false }
+                });
+                if (exists) {
+                  continue;
+                }
+
+                const questionDoc = new AssessmentQuestion({
+                  questionId: q.id,
+                  techSkill: skillKey,
+                  level: level,
+                  question: q.question,
+                  options: q.options || [],
+                  correctAnswer: q.options[0] || '',
+                  techGroupId: null,
+                  techGroupSlug: null,
+                  isActive: true,
+                });
+
+                await questionDoc.save();
+                seededCount++;
+              }
+            } catch (error) {
+              console.error(`[Seed] Error seeding question ${q.id}:`, error.message);
+            }
+          }
+        }
+      }
+    }
+    
+    // Verify each skill has at least 10 questions
+    const skillCounts = {};
+    for (const skillKey of Object.keys(ASSESSMENT_QUESTIONS)) {
+      const count = await AssessmentQuestion.countDocuments({ techSkill: skillKey, isActive: true });
+      skillCounts[skillKey] = count;
+      if (count < 10) {
+        console.warn(`[Seed] ⚠️ Skill "${skillKey}" has only ${count} questions (minimum 10 recommended)`);
+      }
+    }
+    
+    console.log('[Seed] Question counts by skill:', skillCounts);
+    
+    // Also verify questions linked to groups
+    const groupCounts = {};
+    for (const group of techGroups) {
+      const groupSlug = (group.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const count = await AssessmentQuestion.countDocuments({ 
+        $or: [
+          { techGroupId: group.groupId },
+          { techGroupSlug: groupSlug }
+        ],
+        isActive: true 
+      });
+      if (count > 0) {
+        groupCounts[group.name] = count;
+      }
+    }
+    console.log('[Seed] Questions linked to groups:', groupCounts);
+
+    console.log(`[Seed] ✅ Seeded ${seededCount} assessment questions into database`);
+  } catch (error) {
+    console.error('[Seed] Error seeding assessment questions:', error);
+    // Don't fail startup if seeding fails
+  }
+};
+
 // Wait for MongoDB to connect before starting server
 mongoose.connection.once('connected', async () => {
   console.log(`\n📡 MongoDB ready, preparing indexes...`);
   await ensureIndexes();
+  console.log('[Collections] Ensuring collections are initialized...');
+  await ensureCollections();
+  console.log('📝 Seeding assessment questions...');
+  await seedAssessmentQuestions();
   console.log('👑 Ensuring seeded admin accounts...');
   await ensureSeedAdmins();
-  console.log('📦 Index preparation complete. Starting HTTP server...');
+  console.log('📦 Startup preparation complete. Starting HTTP server...');
   startHTTPServer();
 });
 
 // If already connected (e.g., reconnection), start server immediately
 if (mongoose.connection.readyState === 1) {
   ensureIndexes()
+    .then(() => ensureCollections())
+    .then(() => seedAssessmentQuestions())
     .then(() => ensureSeedAdmins())
     .finally(() => startHTTPServer());
 }

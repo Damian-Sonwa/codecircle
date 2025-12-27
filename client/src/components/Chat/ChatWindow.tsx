@@ -1,23 +1,26 @@
-import {useEffect, useMemo} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {motion} from 'framer-motion';
 import {useMessages} from '@/hooks/useMessages';
 import {useConversations} from '@/hooks/useConversations';
 import {useChatStore} from '@/store/chatStore';
 import {useAuthStore} from '@/store/authStore';
 import {MessageBubble} from './MessageBubble';
-import {Composer} from './Composer';
+import {ChatInput} from './ChatInput';
+import {AddCircleMembers} from './AddCircleMembers';
 import {getSocket} from '@/services/socket';
 import {api, endpoints} from '@/services/api';
-import {useQueryClient} from '@tanstack/react-query';
+import {useQueryClient, useQuery} from '@tanstack/react-query';
+import {UserPlus} from 'lucide-react';
 
 const ChatWindow = () => {
   const activeConversationId = useChatStore((state) => state.activeConversationId);
   const typing = useChatStore((state) => state.typing);
   const encryptionPreview = useChatStore((state) => state.encryptionPreview);
   const {data, fetchNextPage, hasNextPage, isFetchingNextPage} = useMessages(activeConversationId);
-  const {data: conversations} = useConversations();
+  const {data: conversations} = useConversations({type: 'all'});
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
+  const [showAddMembers, setShowAddMembers] = useState(false);
 
   const messages = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data]);
   const conversation = useMemo(
@@ -26,15 +29,63 @@ const ChatWindow = () => {
   );
   const typingUsers = Object.entries(typing[activeConversationId ?? ''] ?? {}).filter(([, value]) => value);
 
+  // Fetch circle details if it's a private circle
+  const {data: circleDetails} = useQuery({
+    queryKey: ['private-circle', activeConversationId],
+    queryFn: async () => {
+      if (conversation?.conversationType !== 'private-circle') return null;
+      const {data} = await api.get(endpoints.privateCircles.get(activeConversationId));
+      return data;
+    },
+    enabled: conversation?.conversationType === 'private-circle' && Boolean(activeConversationId),
+  });
+
+  // Check if current user is admin
+  const isAdmin = useMemo(() => {
+    if (!circleDetails || !user) return false;
+    const member = circleDetails.members?.find((m: any) => m.userId === user._id || m.userId === user.userId);
+    return member?.role === 'admin';
+  }, [circleDetails, user]);
+
+  const currentMemberIds = useMemo(() => {
+    return circleDetails?.members?.map((m: any) => m.userId) || [];
+  }, [circleDetails]);
+
   useEffect(() => {
     if (!activeConversationId) return;
     const socket = getSocket();
     if (!socket) return;
-    (socket as any).emit('conversation:join', {conversationId: activeConversationId});
-    return () => {
-      (socket as any).emit('conversation:leave', {conversationId: activeConversationId});
-    };
-  }, [activeConversationId]);
+    
+    // Join appropriate room based on conversation type
+    // If conversation is loaded, use its type; otherwise default to group join for community hangout
+    if (conversation?.conversationType === 'private-circle') {
+      (socket as any).emit('circle:join', {circleId: activeConversationId, userId: user?._id});
+      return () => {
+        // Socket.io will handle cleanup automatically
+      };
+    } else if (conversation?.conversationType === 'community' || conversation?.conversationType === 'room' || (conversation?.type === 'group' && conversation?.conversationType !== 'private-circle')) {
+      // Community group - join group room
+      const groupId = activeConversationId;
+      (socket as any).emit('group:join', {groupId, userId: user?._id});
+      return () => {
+        // Socket.io will handle cleanup automatically
+      };
+    } else if (!conversation) {
+      // If conversation not loaded yet, try group join (most common for community hangout)
+      // This will be updated when conversation loads
+      const groupId = activeConversationId;
+      (socket as any).emit('group:join', {groupId, userId: user?._id});
+      return () => {
+        // Socket.io will handle cleanup automatically
+      };
+    } else {
+      // Default fallback
+      (socket as any).emit('conversation:join', {conversationId: activeConversationId});
+      return () => {
+        (socket as any).emit('conversation:leave', {conversationId: activeConversationId});
+      };
+    }
+  }, [activeConversationId, conversation, user]);
 
   useEffect(() => {
     if (!activeConversationId || !user) return;
@@ -73,13 +124,28 @@ const ChatWindow = () => {
       <header className="glass-card mb-2 sm:mb-4 rounded-2xl sm:rounded-3xl p-3 sm:p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-100 truncate">{conversation?.title ?? 'Conversation'}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-semibold text-slate-100 truncate">{conversation?.title ?? 'Conversation'}</h2>
+              {conversation?.conversationType === 'private-circle' && isAdmin && (
+                <button
+                  onClick={() => setShowAddMembers(true)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-primaryTo hover:text-primaryTo hover:scale-105"
+                  title="Add members"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             {typingUsers.length > 0 ? (
               <p className="text-xs text-primaryTo truncate">
                 {typingUsers.length === 1 ? 'Someone is typing…' : `${typingUsers.length} people typing…`}
               </p>
             ) : (
-              <p className="text-xs text-slate-400 hidden sm:block">Messages travel in near real-time via Socket.IO</p>
+              <p className="text-xs text-slate-400 hidden sm:block">
+                {conversation?.conversationType === 'private-circle' 
+                  ? `${circleDetails?.members?.length || 0} member${(circleDetails?.members?.length || 0) !== 1 ? 's' : ''}`
+                  : 'Messages travel in near real-time via Socket.IO'}
+              </p>
             )}
           </div>
           {encryptionPreview && (
@@ -90,6 +156,15 @@ const ChatWindow = () => {
           )}
         </div>
       </header>
+      {conversation?.conversationType === 'private-circle' && (
+        <AddCircleMembers
+          circleId={activeConversationId!}
+          circleName={conversation.title || 'Circle'}
+          isOpen={showAddMembers}
+          onClose={() => setShowAddMembers(false)}
+          currentMembers={currentMemberIds}
+        />
+      )}
       <div className="flex flex-1 flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-white/5 bg-slate-900/40 min-h-0">
         <div className="flex-1 overflow-y-auto p-3 sm:p-6">
           {hasNextPage && (
@@ -118,7 +193,25 @@ const ChatWindow = () => {
           </div>
         </div>
       </div>
-      <Composer conversationId={activeConversationId} />
+      <ChatInput 
+        conversationId={activeConversationId} 
+        conversationType={
+          conversation?.conversationType === 'private-circle' 
+            ? 'private-circle' 
+            : conversation?.conversationType === 'community' || conversation?.conversationType === 'room' || conversation?.type === 'group'
+            ? 'group'
+            : 'group'
+        }
+        groupId={
+          conversation?.conversationType === 'community' || 
+          conversation?.conversationType === 'room' || 
+          (conversation?.type === 'group' && conversation?.conversationType !== 'private-circle') ||
+          !conversation // Default to group if conversation not loaded yet (common for community hangout)
+            ? activeConversationId 
+            : undefined
+        }
+        circleId={conversation?.conversationType === 'private-circle' ? activeConversationId : undefined}
+      />
     </section>
   );
 };

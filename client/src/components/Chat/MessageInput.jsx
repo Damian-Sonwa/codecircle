@@ -7,7 +7,7 @@ import EmojiPicker from 'emoji-picker-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { uploadsAPI } from '../../lib/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 const MessageInput = ({ activeChat }) => {
   const { user } = useAuth();

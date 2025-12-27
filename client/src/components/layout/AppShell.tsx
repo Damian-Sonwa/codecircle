@@ -8,9 +8,10 @@ import {Menu, X} from 'lucide-react';
 
 interface Props {
   sidebar?: ReactNode;
+  mainContent?: ReactNode;
 }
 
-export const AppShell = ({sidebar}: Props) => {
+export const AppShell = ({sidebar, mainContent}: Props) => {
   const sidebarOpen = useChatStore((state) => state.sidebarOpen);
   const setSidebarOpen = useChatStore((state) => state.setSidebarOpen);
   const activeConversationId = useChatStore((state) => state.activeConversationId);
@@ -80,7 +81,7 @@ export const AppShell = ({sidebar}: Props) => {
 
           {/* Chat Window */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <ChatWindow />
+            {mainContent ?? <ChatWindow />}
           </div>
         </div>
       </main>

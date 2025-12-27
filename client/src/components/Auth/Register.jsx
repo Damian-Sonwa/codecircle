@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -40,9 +40,9 @@ const Register = ({ onToggle }) => {
     }
 
     try {
-      // Use axios.post directly as requested
+      // Use api instance with explicit baseURL
       const userData = { username, password };
-      const response = await axios.post('/api/register', userData);
+      const response = await api.post('/api/auth/signup', userData);
       
       // Registration successful
       if (response.data && response.data.userId && response.data.username) {

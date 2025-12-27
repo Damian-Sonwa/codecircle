@@ -8,11 +8,10 @@ import {useNotificationStore} from '@/store/notificationStore';
 export const ProfileCard = () => {
   const user = useAuthStore((state) => state.user);
   const pushNotification = useNotificationStore((state) => state.push);
-  const {theme, setTheme, setSettingsOpen} = useUIStore((state) => ({
-    theme: state.theme,
-    setTheme: state.setTheme,
-    setSettingsOpen: state.setSettingsOpen
-  }));
+  // Use separate selectors to avoid creating new objects on every render
+  const theme = useUIStore((state) => state.theme);
+  const setTheme = useUIStore((state) => state.setTheme);
+  const setSettingsOpen = useUIStore((state) => state.setSettingsOpen);
 
   if (!user) return null;
 

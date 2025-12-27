@@ -14,6 +14,11 @@ const privateChatSchema = new mongoose.Schema({
     messageId: String,
     userId: String,
     username: String,
+    type: {
+      type: String,
+      enum: ['text', 'emoji', 'image', 'file', 'audio'],
+      default: 'text',
+    },
     message: {
       type: String,
       default: '',

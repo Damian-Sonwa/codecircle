@@ -130,7 +130,7 @@ const DEFAULT_ONBOARDING_DATA = {
 
 const WELCOME_GROUP_NAME = 'CodeCircle Welcome Lounge';
 
-const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
+const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, onTourStart }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
   const navigate = useNavigate();
@@ -453,7 +453,9 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
     setErrorMessage('');
     if (stepIndex === 0) {
       // On welcome page, allow going back to auth by closing onboarding
-      if (onComplete) {
+      if (onClose) {
+        onClose();
+      } else if (onComplete) {
         // Call onComplete with a flag to indicate user wants to go back
         onComplete({ cancelled: true, goBackToAuth: true });
       }
@@ -609,8 +611,11 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
         console.log('[Onboarding] Calling onComplete callback with payload:', payload);
         onComplete(payload);
       } else {
-        console.warn('[Onboarding] No onComplete callback provided');
-        // Fallback: try to update user state directly
+        // Fallback: Navigation is handled here when no callback is provided
+        // This ensures navigation always happens after onboarding completion
+        console.log('[Onboarding] No onComplete callback provided, navigating to dashboard directly');
+        
+        // Update user state to mark onboarding as complete
         updateUser({
           hasOnboarded: true,
           profileCompleted: true,
@@ -618,10 +623,16 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
           skills: formData.skills,
           skillLevel: formData.level,
         });
+        
+        // Navigate to appropriate dashboard after a short delay to ensure state updates propagate
+        // Admins go to admin panel, regular users to dashboard
+        setTimeout(() => {
+          const user = useAuthStore.getState().user;
+          const redirectPath = (user?.role === 'admin' || user?.role === 'superadmin') ? '/admin' : '/dashboard';
+          console.log('[Onboarding] Navigating to', redirectPath);
+          navigate(redirectPath, { replace: true });
+        }, 300);
       }
-      
-      // Force close the modal by clearing local state
-      console.log('[Onboarding] Onboarding complete, waiting for app to handle navigation');
     } catch (error) {
       console.error('[Onboarding] Error finishing onboarding:', error);
     } finally {
@@ -955,6 +966,12 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
     tour: renderTour,
   };
 
+  // Handle visibility prop (for compatibility with AppLayout)
+  // If visible is provided and false, don't render
+  if (visible !== undefined && !visible) {
+    return null;
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
       {/* Close button - visible on welcome page */}
@@ -962,7 +979,9 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
         <button
           onClick={() => {
             console.log('[Onboarding] Close button clicked, going back to auth');
-            if (onComplete) {
+            if (onClose) {
+              onClose();
+            } else if (onComplete) {
               onComplete({ cancelled: true, goBackToAuth: true });
             }
           }}
@@ -1024,7 +1043,13 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete }) => {
               <div className="mt-6 flex items-center justify-between">
                 <Button
                   variant="ghost"
-                  onClick={handlePrevious}
+                  onClick={() => {
+                    if (stepIndex === 0 && onClose) {
+                      onClose();
+                    } else {
+                      handlePrevious();
+                    }
+                  }}
                   disabled={isProcessing}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />

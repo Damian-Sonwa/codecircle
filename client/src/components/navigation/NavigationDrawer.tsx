@@ -15,7 +15,8 @@ import {
   LogOut,
   Plus,
   Menu,
-  UserPlus
+  UserPlus,
+  Users
 } from 'lucide-react';
 import {cn} from '@/utils/styles';
 import {useAuthStore} from '@/store/authStore';
@@ -36,9 +37,9 @@ const techCategories = [
 
 const menuItems = [
   {icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard'},
-  {icon: MessagesSquare, label: 'Messages', to: '/messages'},
-  {icon: UserPlus, label: 'Friend Zone', to: '/friends'},
-  {icon: Lock, label: 'Private Chat', to: '/messages?type=private'},
+  {icon: MessagesSquare, label: 'Community Hangout', to: '/community-hangout', group: 'chat'},
+  {icon: Users, label: 'My Tech Circle', to: '/my-tech-circle', group: 'chat'},
+  {icon: UserPlus, label: 'Friend Zone', to: '/friends', group: 'chat'},
   {icon: Globe2, label: 'Explore Tech Skills', to: '/explore'},
   {icon: Layers, label: 'Tech Categories', to: '/explore/categories', expandable: true},
   {icon: GraduationCap, label: 'Classroom', to: '/classroom'},
@@ -103,47 +104,59 @@ export const NavigationDrawer = () => {
               </div>
 
               <nav className="space-y-2">
-                {menuItems.map((item) => (
-                  <div key={item.label}>
-                    <NavLink
-                      to={item.to}
-                      className={({isActive}) =>
-                        cn(
-                          'group flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30',
-                          isActive ? 'border-primaryTo/60 bg-slate-900/80 text-white shadow-inner' : ''
-                        )
-                      }
-                      onClick={() => {
-                        setOpen(false);
-                        if (item.expandable) {
-                          setShowCategories((prev) => !prev);
+                {menuItems.map((item, index) => {
+                  const prevItem = index > 0 ? menuItems[index - 1] : null;
+                  const showGroupDivider = prevItem && prevItem.group !== item.group && item.group;
+                  
+                  return (
+                    <div key={item.label}>
+                      {showGroupDivider && <div className="my-3 border-t border-white/10" />}
+                      <NavLink
+                        to={item.to}
+                        className={({isActive}) =>
+                          cn(
+                            'group flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30',
+                            isActive ? 'border-primaryTo/60 bg-gradient-to-r from-primaryFrom/20 to-primaryTo/20 text-white shadow-inner' : ''
+                          )
                         }
-                      }}
-                    >
-                      <item.icon className="h-5 w-5 text-primaryTo transition group-hover:scale-110" />
-                      <span>{item.label}</span>
-                    </NavLink>
-                    {item.expandable && showCategories && (
-                      <motion.ul
-                        initial={{opacity: 0, height: 0}}
-                        animate={{opacity: 1, height: 'auto'}}
-                        className="ml-4 mt-2 space-y-1 border-l border-white/10 pl-4"
+                        onClick={() => {
+                          setOpen(false);
+                          if (item.expandable) {
+                            setShowCategories((prev) => !prev);
+                          }
+                        }}
                       >
-                        {techCategories.map((category) => (
-                          <li key={category.label}>
-                            <NavLink
-                              to={category.path}
-                              className="block rounded-xl px-3 py-2 text-xs text-slate-400 transition-all hover:bg-slate-800/70 hover:text-slate-100 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/20"
-                              onClick={() => setOpen(false)}
-                            >
-                              {category.label}
-                            </NavLink>
-                          </li>
-                        ))}
-                      </motion.ul>
-                    )}
-                  </div>
-                ))}
+                        <item.icon className={cn(
+                          'h-5 w-5 transition group-hover:scale-110',
+                          item.group === 'chat' ? 'text-cyan-400' : 'text-primaryTo'
+                        )} />
+                        <span>{item.label}</span>
+                        {item.group === 'chat' && (
+                          <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-500">Chat</span>
+                        )}
+                      </NavLink>
+                      {item.expandable && showCategories && (
+                        <motion.ul
+                          initial={{opacity: 0, height: 0}}
+                          animate={{opacity: 1, height: 'auto'}}
+                          className="ml-4 mt-2 space-y-1 border-l border-white/10 pl-4"
+                        >
+                          {techCategories.map((category) => (
+                            <li key={category.label}>
+                              <NavLink
+                                to={category.path}
+                                className="block rounded-xl px-3 py-2 text-xs text-slate-400 transition-all hover:bg-slate-800/70 hover:text-slate-100 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/20"
+                                onClick={() => setOpen(false)}
+                              >
+                                {category.label}
+                              </NavLink>
+                            </li>
+                          ))}
+                        </motion.ul>
+                      )}
+                    </div>
+                  );
+                })}
                 <button
                   onClick={() => setSettingsOpen(true)}
                   className="flex w-full items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30"

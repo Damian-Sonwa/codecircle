@@ -1,9 +1,9 @@
 import {motion, AnimatePresence} from 'framer-motion';
-import {useState} from 'react';
+import {useState, useRef, useEffect} from 'react';
 import {type Message, type User} from '@/types';
 import {formatTimestamp} from '@/utils/date';
 import {cn} from '@/utils/styles';
-import {Lock} from 'lucide-react';
+import {Lock, Play, Pause, Volume2, Image as ImageIcon, File, Music} from 'lucide-react';
 import {useUserSummary} from '@/hooks/useUserSummary';
 
 interface Props {
@@ -17,11 +17,54 @@ interface Props {
 export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
   const timestamp = formatTimestamp(message.createdAt);
   const [hover, setHover] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const {data: summary} = useUserSummary(message.senderId, hover && !isOwn);
   const displayName = sender?.username ?? summary?.username ?? 'Teammate';
   const reactionEntries = Object.entries(message.reactions || {});
   const reactionBar = ['🔥', '💡', '👏', '✅'];
   const isDeleted = Boolean(message.deletedAt);
+  
+  // Handle voice message playback
+  const voiceNote = (message as any).voiceNote || (message.media?.find((m) => m.type === 'audio'));
+  
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    const updateProgress = () => {
+      if (audio.duration) {
+        setAudioProgress((audio.currentTime / audio.duration) * 100);
+      }
+    };
+    
+    audio.addEventListener('timeupdate', updateProgress);
+    audio.addEventListener('ended', () => {
+      setIsPlaying(false);
+      setAudioProgress(0);
+    });
+    
+    return () => {
+      audio.removeEventListener('timeupdate', updateProgress);
+      audio.removeEventListener('ended', () => {
+        setIsPlaying(false);
+        setAudioProgress(0);
+      });
+    };
+  }, [voiceNote]);
+  
+  const toggleVoicePlayback = () => {
+    if (!audioRef.current || !voiceNote) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
   return (
     <motion.div
       layout
@@ -56,24 +99,84 @@ export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
           {isDeleted ? (
             <p className="italic text-slate-300/60">Message deleted by author</p>
           ) : (
-            message.content && <p className="whitespace-pre-line leading-relaxed">{message.content}</p>
-          )}
-          {message.media?.length > 0 && (
-            <div className="mt-2 grid gap-2">
-              {message.media.map((media) => (
-                <a
-                  key={media.key}
-                  href={media.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40"
-                >
-                  <div className="p-3 text-xs text-slate-200">
-                    {media.type.toUpperCase()} attachment ({Math.round(media.size / 1024)} KB)
+            <>
+              {/* Voice Message */}
+              {voiceNote && (
+                <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                  <button
+                    onClick={toggleVoicePlayback}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-primaryTo/20 text-primaryTo transition hover:bg-primaryTo/30"
+                  >
+                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+                  </button>
+                  <div className="flex-1">
+                    <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primaryFrom to-primaryTo transition-all duration-100"
+                        style={{width: `${audioProgress}%`}}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {voiceNote.duration ? `${voiceNote.duration}s` : 'Voice message'}
+                    </p>
                   </div>
-                </a>
-              ))}
-            </div>
+                  <audio ref={audioRef} src={voiceNote.url} preload="metadata" />
+                </div>
+              )}
+              
+              {/* Text/Emoji Content */}
+              {message.content && (
+                <p className={cn('whitespace-pre-line leading-relaxed', message.type === 'emoji' && 'text-2xl sm:text-3xl')}>
+                  {message.content}
+                </p>
+              )}
+              
+              {/* Image Attachments */}
+              {message.media?.filter((m) => m.type === 'image').length > 0 && (
+                <div className="mt-2 grid gap-2">
+                  {message.media
+                    .filter((m) => m.type === 'image')
+                    .map((media) => (
+                      <a
+                        key={media.key}
+                        href={media.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="overflow-hidden rounded-xl border border-white/10 bg-slate-950/40"
+                      >
+                        <img src={media.url} alt="Attachment" className="w-full h-auto max-h-96 object-contain" />
+                        <div className="p-2 text-xs text-slate-400 flex items-center gap-2">
+                          <ImageIcon className="h-3 w-3" />
+                          {media.filename || `Image (${Math.round(media.size / 1024)} KB)`}
+                        </div>
+                      </a>
+                    ))}
+                </div>
+              )}
+              
+              {/* File Attachments */}
+              {message.media?.filter((m) => m.type === 'file').length > 0 && (
+                <div className="mt-2 grid gap-2">
+                  {message.media
+                    .filter((m) => m.type === 'file')
+                    .map((media) => (
+                      <a
+                        key={media.key}
+                        href={media.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 transition hover:bg-slate-950/60"
+                      >
+                        <File className="h-5 w-5 text-primaryTo flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-slate-200 truncate">{media.filename || 'File attachment'}</p>
+                          <p className="text-[10px] text-slate-400">{Math.round(media.size / 1024)} KB</p>
+                        </div>
+                      </a>
+                    ))}
+                </div>
+              )}
+            </>
           )}
           <div className="mt-1 flex items-center justify-end gap-1 sm:gap-2 text-[10px] uppercase tracking-wide text-slate-300/70">
             <span className="hidden sm:inline">{timestamp}</span>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -21,7 +21,7 @@ const Login = ({ onToggle }) => {
 
     try {
       const userData = { identifier: username, password };
-      const response = await axios.post('/api/auth/login', userData, { withCredentials: true });
+      const response = await api.post('/api/auth/login', userData);
       
       if (response.data && response.data.user && response.data.tokens) {
         // Convert new format to old format for AuthContext compatibility

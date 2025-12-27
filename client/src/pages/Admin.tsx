@@ -3,6 +3,7 @@ import {ShieldCheck} from 'lucide-react';
 import {api, endpoints} from '@/services/api';
 import {useAuthStore} from '@/store/authStore';
 import {type EngagementMetric} from '@/types';
+import {LiveSessionApplications} from '@/components/Admin/LiveSessionApplications';
 
 type AdminAnalytics = {
   userCount: number;
@@ -34,20 +35,27 @@ export const AdminPage = () => {
       {user?.role !== 'admin' && <p className="mt-6 sm:mt-10 text-center text-xs sm:text-sm text-rose-400 px-4">You need admin privileges to view this dashboard.</p>}
 
       {user?.role === 'admin' && !error && data && (
-        <div className="mt-6 sm:mt-10 grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-          <div className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Members</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{data.userCount}</p>
+        <>
+          <div className="mt-6 sm:mt-10 grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+            <div className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Members</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{data.userCount}</p>
+            </div>
+            <div className="glass-card rounded-3xl p-6 text-center">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Messages</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{data.messageCount}</p>
+            </div>
+            <div className="glass-card rounded-3xl p-6 text-center">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Top creator</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{data.leaderboard?.[0]?.userId?.username ?? 'N/A'}</p>
+            </div>
           </div>
-          <div className="glass-card rounded-3xl p-6 text-center">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Messages</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{data.messageCount}</p>
+
+          <div className="mt-8 sm:mt-10">
+            <h2 className="text-xl font-semibold text-white mb-4">Live Session Applications</h2>
+            <LiveSessionApplications />
           </div>
-          <div className="glass-card rounded-3xl p-6 text-center">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Top creator</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{data.leaderboard?.[0]?.userId?.username ?? 'N/A'}</p>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );
