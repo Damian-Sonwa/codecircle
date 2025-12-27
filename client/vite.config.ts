@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 // @ts-ignore - Node types are available
 import path from 'path';
 // @ts-ignore - Node types are available
-import {existsSync} from 'fs';
+import {existsSync, readdirSync} from 'fs';
 // @ts-ignore - Node types are available
 import {fileURLToPath} from 'url';
 // @ts-ignore - Node types are available
@@ -15,6 +15,42 @@ import {dirname} from 'path';
 // @ts-ignore - import.meta.url is available in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Helper to find files case-insensitively (for Linux compatibility)
+const findFileCaseInsensitive = (basePath: string, extensions: string[]): string | null => {
+  const dir = path.dirname(basePath);
+  const baseName = path.basename(basePath, path.extname(basePath));
+  
+  try {
+    // Try exact case first
+    for (const ext of extensions) {
+      const fullPath = basePath + ext;
+      if (existsSync(fullPath)) {
+        return path.normalize(fullPath);
+      }
+    }
+    
+    // If exact case fails, try case-insensitive search
+    if (existsSync(dir)) {
+      const files = readdirSync(dir);
+      const lowerBaseName = baseName.toLowerCase();
+      
+      for (const file of files) {
+        const fileLower = path.basename(file, path.extname(file)).toLowerCase();
+        if (fileLower === lowerBaseName) {
+          const fullPath = path.join(dir, file);
+          if (existsSync(fullPath)) {
+            return path.normalize(fullPath);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Continue
+  }
+  
+  return null;
+};
 
 // Custom plugin to resolve extensions for aliased imports (fallback)
 const resolveAliasExtensions = () => {
@@ -30,24 +66,10 @@ const resolveAliasExtensions = () => {
         const basePath = path.resolve(srcDir, srcPath);
         const extensions = ['.tsx', '.ts', '.jsx', '.js', '.json'];
         
-        // Check if both .tsx and .jsx exist, prefer .tsx
-        const tsxPath = basePath + '.tsx';
-        const jsxPath = basePath + '.jsx';
-        if (existsSync(tsxPath) && existsSync(jsxPath)) {
-          return path.normalize(tsxPath);
-        }
-        
-        // Try each extension
-        for (const ext of extensions) {
-          const fullPath = basePath + ext;
-          try {
-            if (existsSync(fullPath)) {
-              // Return normalized path for cross-platform compatibility
-              return path.normalize(fullPath);
-            }
-          } catch (e) {
-            // Continue to next extension
-          }
+        // Try to find file with case-insensitive matching
+        const foundPath = findFileCaseInsensitive(basePath, extensions);
+        if (foundPath) {
+          return foundPath;
         }
         
         // If no file found, try as directory with index
