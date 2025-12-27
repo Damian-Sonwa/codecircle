@@ -10,10 +10,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primaryFrom: '#6366f1',
-        primaryTo: '#06b6d4',
-        secondaryFrom: '#f97316',
-        secondaryTo: '#ec4899'
+        primaryFrom: '#0ea5e9', // sky-500
+        primaryTo: '#0ea5e9', // sky-500 (same for consistency)
+        secondaryFrom: '#8b5cf6', // violet-500
+        secondaryTo: '#8b5cf6' // violet-500
       },
       backdropBlur: {sm: '4px', md: '8px', lg: '12px'},
       boxShadow: {

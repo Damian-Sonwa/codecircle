@@ -200,7 +200,7 @@ export const SkillAssessmentModal = ({groupId, groupName, techSkill, isOpen, onC
           animate={{opacity: 1, scale: 1}}
           className="glass-card rounded-2xl sm:rounded-3xl p-8 text-center"
         >
-          <Loader2 className="h-8 w-8 animate-spin text-primaryTo mx-auto mb-4" />
+          <Loader2 className="h-8 w-8 animate-spin text-sky-500 mx-auto mb-4" />
           <p className="text-sm text-slate-300">Loading assessment questions...</p>
         </motion.div>
       </div>
@@ -239,7 +239,7 @@ export const SkillAssessmentModal = ({groupId, groupName, techSkill, isOpen, onC
 
           <button
             onClick={handleGoToClassroom}
-            className="w-full rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:scale-105 flex items-center justify-center gap-2"
+            className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 flex items-center justify-center gap-2"
           >
             <GraduationCap className="h-4 w-4" />
             Go to Classroom Page
@@ -273,7 +273,7 @@ export const SkillAssessmentModal = ({groupId, groupName, techSkill, isOpen, onC
             <h2 className="text-xl font-semibold text-white mb-2">
               {passed ? 'Congratulations!' : 'Assessment Incomplete'}
             </h2>
-            <p className="text-lg font-semibold text-primaryTo mb-2">
+            <p className="text-lg font-semibold text-sky-500 mb-2">
               Score: {assessmentResult.score}%
             </p>
             <p className="text-sm text-slate-400">{assessmentResult.message}</p>
@@ -297,7 +297,7 @@ export const SkillAssessmentModal = ({groupId, groupName, techSkill, isOpen, onC
           ) : (
             <button
               onClick={handleGoToClassroom}
-              className="w-full rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:scale-105 flex items-center justify-center gap-2"
+              className="w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 flex items-center justify-center gap-2"
             >
               <GraduationCap className="h-4 w-4" />
               Go to Classroom Page
@@ -340,7 +340,7 @@ export const SkillAssessmentModal = ({groupId, groupName, techSkill, isOpen, onC
             <motion.div
               initial={{width: 0}}
               animate={{width: `${progress}%`}}
-              className="h-full bg-gradient-to-r from-primaryFrom to-primaryTo"
+              className="h-full bg-gradient-to-r from-sky-500 to-sky-500"
             />
           </div>
         </div>
@@ -366,15 +366,15 @@ export const SkillAssessmentModal = ({groupId, groupName, techSkill, isOpen, onC
                       className={cn(
                         'w-full text-left p-4 rounded-xl border transition',
                         isSelected
-                          ? 'border-primaryTo bg-primaryTo/20 text-white'
-                          : 'border-white/10 bg-slate-900/60 text-slate-200 hover:border-primaryTo/40'
+                          ? 'border-sky-500 bg-sky-500/20 text-white'
+                          : 'border-white/10 bg-slate-900/60 text-slate-200 hover:border-sky-600/40'
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <div
                           className={cn(
                             'h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0',
-                            isSelected ? 'border-primaryTo bg-primaryTo' : 'border-slate-400'
+                            isSelected ? 'border-sky-500 bg-sky-500' : 'border-slate-400'
                           )}
                         >
                           {isSelected && <div className="h-2 w-2 rounded-full bg-white" />}
@@ -394,7 +394,7 @@ export const SkillAssessmentModal = ({groupId, groupName, techSkill, isOpen, onC
           <button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
-            className="px-4 py-2 rounded-full border border-white/10 bg-slate-900/60 text-slate-300 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:border-primaryTo/40"
+            className="px-4 py-2 rounded-full border border-white/10 bg-slate-900/60 text-slate-300 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed hover:border-sky-600/40"
           >
             Previous
           </button>

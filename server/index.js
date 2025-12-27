@@ -1382,6 +1382,98 @@ app.get('/api/auth/github/failure', (req, res) => {
 });
 
 // REST API Routes
+// POST /api/auth/signup - User registration endpoint
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.error('⚠️ MongoDB not connected. Ready state:', mongoose.connection.readyState);
+      return res.status(503).json({ 
+        error: 'Database connection unavailable. Please try again in a moment.' 
+      });
+    }
+
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    // Validate input
+    if (username.trim().length < 2) {
+      return res.status(400).json({ error: 'Username must be at least 2 characters long' });
+    }
+
+    if (password.length < 3) {
+      return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+    }
+    
+    // Check if user exists (case-insensitive search)
+    const existingUser = await User.findOne({ 
+      username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
+    });
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    
+    const userId = generateId();
+    const user = new User({
+      userId,
+      username: username.trim(),
+      password: password, // In production, hash this with bcrypt
+      provider: 'local',
+      online: false,
+      createdAt: new Date(),
+      lastSeen: new Date()
+    });
+    
+    await user.save();
+    console.log(`✅ User registered: ${username} (${userId})`);
+    await ensureCoreGroupsForUser(user);
+    const token = signToken(user);
+    res.json({
+      userId,
+      username: user.username,
+      role: user.role,
+      token,
+      onboardingCompleted: user.onboardingCompleted,
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: messages.join(', ') 
+      });
+    }
+    
+    // Handle duplicate key errors (unique constraint)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({ 
+        error: `${field === 'username' ? 'Username' : 'User ID'} already exists` 
+      });
+    }
+    
+    // Handle MongoDB connection errors
+    if (error.name === 'MongoServerError' || error.name === 'MongoNetworkError') {
+      return res.status(503).json({ 
+        error: 'Database connection error. Please try again.' 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Registration failed', 
+      details: error.message 
+    });
+  }
+});
+
+// Legacy endpoint (for backward compatibility)
 app.post('/api/register', async (req, res) => {
   try {
     // Check MongoDB connection

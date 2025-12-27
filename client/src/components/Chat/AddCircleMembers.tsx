@@ -221,14 +221,14 @@ export const AddCircleMembers = ({circleId, circleName, isOpen, onClose, current
                         }
                       }}
                       placeholder="Enter username or email"
-                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-10 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primaryTo"
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/60 px-10 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleAddMember}
                     disabled={!searchInput.trim()}
-                    className="rounded-xl border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm text-white transition hover:border-primaryTo disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded-xl border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm text-white transition hover:border-sky-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <UserPlus className="h-4 w-4" />
                   </button>
@@ -301,7 +301,7 @@ export const AddCircleMembers = ({circleId, circleName, isOpen, onClose, current
                 <button
                   onClick={handleSubmit}
                   disabled={addMembersMutation.isPending || validMembersCount === 0}
-                  className="flex-1 rounded-xl bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2.5 text-sm font-semibold text-white shadow-lift transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {addMembersMutation.isPending ? (
                     <>

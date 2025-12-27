@@ -79,7 +79,7 @@ export const AdminLayout = () => {
           >
             <div className="p-4 sm:p-6 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center flex-shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center flex-shrink-0">
                   <Shield className="h-6 w-6 text-white" />
                 </div>
                 <div className="min-w-0">
@@ -101,7 +101,7 @@ export const AdminLayout = () => {
                       cn(
                         'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition touch-manipulation',
                         isActive
-                          ? 'bg-primaryTo/20 text-primaryTo border border-primaryTo/30'
+                          ? 'bg-sky-500/20 text-sky-500 border border-sky-500/30'
                           : 'text-slate-300 hover:bg-slate-800 hover:text-white active:bg-slate-700'
                       )
                     }
@@ -117,7 +117,7 @@ export const AdminLayout = () => {
               <div className="mb-4 px-4 py-2 rounded-lg bg-slate-800/50">
                 <p className="text-xs text-slate-400 mb-1">Logged in as</p>
                 <p className="text-sm font-semibold text-white truncate">{user?.username}</p>
-                <p className="text-xs text-primaryTo">{user?.role}</p>
+                <p className="text-xs text-sky-500">{user?.role}</p>
               </div>
               <button
                 onClick={handleLogout}

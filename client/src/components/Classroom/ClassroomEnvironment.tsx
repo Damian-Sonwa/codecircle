@@ -168,7 +168,7 @@ export const ClassroomEnvironment = ({application}: Props) => {
                 'flex h-10 w-10 items-center justify-center rounded-full transition',
                 isVideoEnabled
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                  : 'bg-slate-900/60 text-slate-400 border border-white/10 hover:border-primaryTo'
+                  : 'bg-slate-900/60 text-slate-400 border border-white/10 hover:border-sky-600'
               )}
             >
               {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
@@ -179,7 +179,7 @@ export const ClassroomEnvironment = ({application}: Props) => {
                 'flex h-10 w-10 items-center justify-center rounded-full transition',
                 isAudioEnabled
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                  : 'bg-slate-900/60 text-slate-400 border border-white/10 hover:border-primaryTo'
+                  : 'bg-slate-900/60 text-slate-400 border border-white/10 hover:border-sky-600'
               )}
             >
               {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
@@ -202,7 +202,7 @@ export const ClassroomEnvironment = ({application}: Props) => {
               />
             ) : (
               <div className="text-center">
-                <div className="h-24 w-24 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white text-2xl font-semibold mx-auto mb-4">
+                <div className="h-24 w-24 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white text-2xl font-semibold mx-auto mb-4">
                   {user?.username?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <p className="text-sm text-slate-400">Video is off</p>
@@ -217,13 +217,13 @@ export const ClassroomEnvironment = ({application}: Props) => {
           {/* Participants */}
           <div className="glass-card rounded-2xl sm:rounded-3xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Users className="h-4 w-4 text-primaryTo" />
+              <Users className="h-4 w-4 text-sky-500" />
               <h3 className="text-sm font-semibold text-white">Participants</h3>
             </div>
             <div className="space-y-2 max-h-32 overflow-y-auto">
               {roomDetails?.participants.map((participant) => (
                 <div key={participant.userId} className="flex items-center gap-2 text-xs">
-                  <div className="h-6 w-6 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white text-[10px] font-semibold">
+                  <div className="h-6 w-6 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white text-[10px] font-semibold">
                     {participant.username.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-slate-300 truncate">{participant.username}</span>
@@ -235,7 +235,7 @@ export const ClassroomEnvironment = ({application}: Props) => {
           {/* Chat */}
           <div className="glass-card rounded-2xl sm:rounded-3xl p-4 flex flex-col flex-1 min-h-0">
             <div className="flex items-center gap-2 mb-3">
-              <MessageSquare className="h-4 w-4 text-primaryTo" />
+              <MessageSquare className="h-4 w-4 text-sky-500" />
               <h3 className="text-sm font-semibold text-white">Live Chat</h3>
             </div>
 
@@ -250,7 +250,7 @@ export const ClassroomEnvironment = ({application}: Props) => {
                     className={cn(
                       'text-xs p-2 rounded-lg',
                       msg.userId === user?._id
-                        ? 'bg-primaryTo/20 text-right ml-auto max-w-[80%]'
+                        ? 'bg-sky-500/20 text-right ml-auto max-w-[80%]'
                         : 'bg-slate-900/60 text-left'
                     )}
                   >
@@ -282,12 +282,12 @@ export const ClassroomEnvironment = ({application}: Props) => {
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-primaryTo"
+                className="flex-1 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-500"
               />
               <button
                 type="submit"
                 disabled={!messageText.trim()}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-primaryFrom to-primaryTo text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 text-white transition hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="h-4 w-4" />
               </button>

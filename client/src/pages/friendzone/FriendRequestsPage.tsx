@@ -124,7 +124,7 @@ export const FriendRequestsPage = () => {
       {/* Add Friend Form */}
       <section>
         <div className="mb-4 flex items-center gap-2">
-          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 text-primaryTo" />
+          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
           <h2 className="text-lg sm:text-xl font-semibold text-white">Add Friend</h2>
         </div>
         <form onSubmit={handleSendRequest} className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6">
@@ -136,7 +136,7 @@ export const FriendRequestsPage = () => {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Username or email address"
-                className="w-full rounded-full border border-white/10 bg-slate-900/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primaryTo"
+                className="w-full rounded-full border border-white/10 bg-slate-900/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 disabled={isSearching || sendRequestMutation.isPending}
                 required
               />
@@ -144,7 +144,7 @@ export const FriendRequestsPage = () => {
             <button
               type="submit"
               disabled={isSearching || sendRequestMutation.isPending || !searchInput.trim()}
-              className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-6 py-2.5 text-sm font-semibold text-white shadow-lift transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {(isSearching || sendRequestMutation.isPending) ? (
                 <>
@@ -167,10 +167,10 @@ export const FriendRequestsPage = () => {
       {/* Incoming Requests */}
       <section>
         <div className="mb-4 flex items-center gap-2">
-          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 text-primaryTo" />
+          <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
           <h2 className="text-lg sm:text-xl font-semibold text-white">Incoming Requests</h2>
           {incomingRequests.length > 0 && (
-            <span className="rounded-full bg-primaryTo/20 px-2 py-0.5 text-xs text-primaryTo">{incomingRequests.length}</span>
+            <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-xs text-violet-500">{incomingRequests.length}</span>
           )}
         </div>
 
@@ -187,7 +187,7 @@ export const FriendRequestsPage = () => {
                 className="glass-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl p-4 sm:p-5"
               >
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold text-sm sm:text-base flex-shrink-0">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold text-sm sm:text-base flex-shrink-0">
                     {request.username.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -208,7 +208,7 @@ export const FriendRequestsPage = () => {
                   <button
                     onClick={() => handleAccept(request._id || request.userId)}
                     disabled={respondMutation.isPending}
-                    className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:scale-105 disabled:opacity-50"
+                    className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50"
                   >
                     Accept
                   </button>

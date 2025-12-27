@@ -85,7 +85,7 @@ export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
           className={cn(
             'rounded-xl sm:rounded-2xl md:rounded-3xl border border-white/5 px-2.5 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-3 text-xs sm:text-sm shadow-lift transition break-words',
             isOwn
-              ? 'bg-gradient-to-br from-primaryFrom/80 to-primaryTo/70 text-white'
+              ? 'bg-gradient-to-br from-sky-500/80 to-sky-500/70 text-white'
               : 'bg-slate-900/70 text-slate-100'
           )}
         >
@@ -105,14 +105,14 @@ export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
                 <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
                   <button
                     onClick={toggleVoicePlayback}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-primaryTo/20 text-primaryTo transition hover:bg-primaryTo/30"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/20 text-sky-500 transition hover:bg-sky-500/30"
                   >
                     {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
                   </button>
                   <div className="flex-1">
                     <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-primaryFrom to-primaryTo transition-all duration-100"
+                        className="h-full bg-gradient-to-r from-sky-500 to-sky-500 transition-all duration-100"
                         style={{width: `${audioProgress}%`}}
                       />
                     </div>
@@ -167,7 +167,7 @@ export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
                         rel="noreferrer"
                         className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 transition hover:bg-slate-950/60"
                       >
-                        <File className="h-5 w-5 text-primaryTo flex-shrink-0" />
+                        <File className="h-5 w-5 text-sky-500 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-slate-200 truncate">{media.filename || 'File attachment'}</p>
                           <p className="text-[10px] text-slate-400">{Math.round(media.size / 1024)} KB</p>
@@ -196,7 +196,7 @@ export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
                     <button
                       key={emoji}
                       onClick={() => onReact(message, emoji)}
-                      className="rounded-full border border-white/10 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-slate-200 transition hover:border-primaryTo"
+                      className="rounded-full border border-white/10 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs text-slate-200 transition hover:border-sky-600"
                     >
                       {emoji}
                     </button>

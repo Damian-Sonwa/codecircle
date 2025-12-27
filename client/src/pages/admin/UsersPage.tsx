@@ -144,13 +144,13 @@ export const UsersPage = () => {
               placeholder="Search by name, email, or role..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-slate-900 pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primaryTo touch-manipulation"
+              className="w-full rounded-lg border border-white/10 bg-slate-900 pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 touch-manipulation"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="rounded-lg border border-white/10 bg-slate-900 px-3 sm:px-4 py-2 sm:py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primaryTo touch-manipulation min-w-[140px]"
+            className="rounded-lg border border-white/10 bg-slate-900 px-3 sm:px-4 py-2 sm:py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 touch-manipulation min-w-[140px]"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -159,7 +159,7 @@ export const UsersPage = () => {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as any)}
-            className="rounded-lg border border-white/10 bg-slate-900 px-3 sm:px-4 py-2 sm:py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primaryTo touch-manipulation min-w-[140px]"
+            className="rounded-lg border border-white/10 bg-slate-900 px-3 sm:px-4 py-2 sm:py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 touch-manipulation min-w-[140px]"
           >
             <option value="all">All Roles</option>
             <option value="admin">Admin</option>
@@ -204,7 +204,7 @@ export const UsersPage = () => {
                   >
                     <td className="px-4 lg:px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
                           {user.username.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
@@ -265,7 +265,7 @@ export const UsersPage = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleEdit(user)}
-                          className="p-2 rounded-lg text-slate-400 hover:text-primaryTo hover:bg-primaryTo/10 transition touch-manipulation active:scale-95"
+                          className="p-2 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-500/10 transition touch-manipulation active:scale-95"
                           title="Edit user"
                         >
                           <Edit className="h-4 w-4" />
@@ -311,7 +311,7 @@ export const UsersPage = () => {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold flex-shrink-0">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
                       {user.username.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -453,7 +453,7 @@ const EditUserModal = ({
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primaryTo"
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
               required
             />
           </div>
@@ -463,7 +463,7 @@ const EditUserModal = ({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primaryTo"
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
               required
             />
           </div>
@@ -472,7 +472,7 @@ const EditUserModal = ({
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primaryTo"
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="user">User</option>
               <option value="admin">Admin</option>
@@ -484,7 +484,7 @@ const EditUserModal = ({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primaryTo"
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
@@ -500,7 +500,7 @@ const EditUserModal = ({
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-lg bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-sm font-semibold text-white shadow-lift transition hover:scale-105"
+              className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
             >
               Save Changes
             </button>

@@ -149,7 +149,7 @@ export const ExplorePage = () => {
             <button
               key={skill}
               onClick={() => setActiveSkill(skill)}
-              className={skill === activeSkill ? 'rounded-xl sm:rounded-2xl bg-gradient-to-r from-primaryFrom to-primaryTo px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift whitespace-nowrap' : 'rounded-xl sm:rounded-2xl border border-white/10 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-200 transition hover:border-primaryTo whitespace-nowrap'}
+              className={skill === activeSkill ? 'rounded-xl sm:rounded-2xl bg-gradient-to-r from-sky-500 to-sky-500 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift whitespace-nowrap' : 'rounded-xl sm:rounded-2xl border border-white/10 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-200 transition hover:border-sky-600 whitespace-nowrap'}
             >
               {skill}
             </button>
@@ -161,7 +161,7 @@ export const ExplorePage = () => {
         {isLoading && (
           <div className="col-span-2 flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primaryTo border-r-transparent mb-4"></div>
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-sky-500 border-r-transparent mb-4"></div>
               <p className="text-sm text-slate-400">Loading tech groups...</p>
             </div>
           </div>

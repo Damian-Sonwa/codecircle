@@ -63,7 +63,7 @@ export const ProfilePage = () => {
             value={bio}
             onChange={(event) => setBio(event.target.value)}
             rows={4}
-            className="mt-4 w-full rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-200 focus:border-primaryTo focus:outline-none"
+            className="mt-4 w-full rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-200 focus:border-sky-500 focus:outline-none"
             placeholder="Tell the community how you like to learn, collaborate, or mentor."
           />
         </section>

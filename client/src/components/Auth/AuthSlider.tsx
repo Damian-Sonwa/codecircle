@@ -125,7 +125,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
           transition={{type: 'spring', stiffness: 170, damping: 20}}
           className="absolute inset-y-0 w-full md:w-1/2"
         >
-          <div className="h-full bg-gradient-to-br from-primaryFrom/80 via-primaryTo/80 to-secondaryTo/80 backdrop-blur-sm" />
+          <div className="h-full bg-gradient-to-br from-sky-500/80 via-sky-500/80 to-violet-500/80 backdrop-blur-sm" />
         </motion.div>
         <div className="relative hidden flex-col justify-between px-8 py-12 md:flex md:px-12 md:py-16">
           <div>
@@ -148,7 +148,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                 Need an account?{' '}
                 <button 
                   onClick={() => setView('register')} 
-                  className="text-primaryTo transition-all hover:text-primaryFrom hover:underline active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/50 rounded px-1"
+                  className="text-sky-500 transition-all hover:text-sky-600 hover:underline active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/50 rounded px-1"
                 >
                   Create one
                 </button>
@@ -158,7 +158,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                 Already joined?{' '}
                 <button 
                   onClick={() => setView('login')} 
-                  className="text-primaryTo transition-all hover:text-primaryFrom hover:underline active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/50 rounded px-1"
+                  className="text-sky-500 transition-all hover:text-sky-600 hover:underline active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/50 rounded px-1"
                 >
                   Sign in
                 </button>

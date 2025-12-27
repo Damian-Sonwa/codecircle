@@ -26,13 +26,13 @@ export const Notifications = () => {
                     </div>
                   )}
                   {item.type === 'error' && (
-                    <div className="flex-shrink-0 h-5 w-5 rounded-full bg-red-500/20 flex items-center justify-center">
-                      <span className="text-red-400 text-xs">!</span>
+                    <div className="flex-shrink-0 h-5 w-5 rounded-full bg-rose-500/20 flex items-center justify-center">
+                      <span className="text-rose-400 text-xs">!</span>
                     </div>
                   )}
                   {item.type === 'info' && (
-                    <div className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <span className="text-blue-400 text-xs">i</span>
+                    <div className="flex-shrink-0 h-5 w-5 rounded-full bg-violet-500/20 flex items-center justify-center">
+                      <span className="text-violet-400 text-xs">i</span>
                     </div>
                   )}
                   <p className="text-sm sm:text-base font-semibold text-slate-100 break-words">{item.title}</p>

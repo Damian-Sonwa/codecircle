@@ -87,7 +87,7 @@ export const ClassroomPage = () => {
                   <p className="mt-2 text-sm text-slate-300">{classroom.description}</p>
                   <p className="mt-1 text-xs text-slate-500">Instructor • {classroom.instructor?.username ?? 'TBA'}</p>
                 </div>
-                <button className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-300 transition hover:border-primaryTo hover:text-primaryTo">
+                <button className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-300 transition hover:border-sky-600 hover:text-sky-600">
                   Add materials
                 </button>
               </div>
@@ -95,7 +95,7 @@ export const ClassroomPage = () => {
                 {classroom.schedule.map((session) => (
                   <div key={session._id} className="rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-900/60 p-3 sm:p-4 md:p-5">
                     <div className="flex items-center gap-3 text-slate-200">
-                      <CalendarDays className="h-5 w-5 text-primaryTo" />
+                      <CalendarDays className="h-5 w-5 text-sky-500" />
                       <div>
                         <p className="text-sm font-semibold">{session.title}</p>
                         <p className="text-xs text-slate-400">{new Date(session.date).toLocaleString()}</p>
@@ -108,7 +108,7 @@ export const ClassroomPage = () => {
                           href={session.link}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 transition hover:text-primaryTo"
+                          className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 transition hover:text-sky-600"
                         >
                           <Video className="h-3 w-3" /> Join live
                         </a>
@@ -119,7 +119,7 @@ export const ClassroomPage = () => {
                     </div>
                     <button
                       onClick={() => registerMutation.mutate({classroomId: classroom._id, sessionId: session._id})}
-                      className="mt-4 rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-xs font-semibold text-white shadow-lift"
+                      className="mt-4 rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:bg-sky-600"
                     >
                       Register + Chat
                     </button>

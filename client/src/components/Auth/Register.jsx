@@ -91,7 +91,7 @@ const Register = ({ onToggle }) => {
         className="space-y-6"
       >
         <motion.div variants={itemVariants} className="text-center">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-sky-500 to-violet-500 bg-clip-text text-transparent mb-2">
             Join CodeCircle
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300">
@@ -109,7 +109,7 @@ const Register = ({ onToggle }) => {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoComplete="username"
-              className="h-12 text-base pl-10 border-2 border-gray-200 dark:border-gray-700 focus:border-primary transition-colors bg-white/70 dark:bg-gray-800/70"
+              className="h-12 text-base pl-10 border-2 border-gray-200 dark:border-gray-700 focus:border-sky-500 transition-colors bg-white/70 dark:bg-gray-800/70"
             />
           </motion.div>
           <motion.div variants={itemVariants} className="relative">
@@ -121,7 +121,7 @@ const Register = ({ onToggle }) => {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="h-12 text-base pl-10 border-2 border-gray-200 dark:border-gray-700 focus:border-primary transition-colors bg-white/70 dark:bg-gray-800/70"
+              className="h-12 text-base pl-10 border-2 border-gray-200 dark:border-gray-700 focus:border-sky-500 transition-colors bg-white/70 dark:bg-gray-800/70"
             />
           </motion.div>
           <motion.div variants={itemVariants} className="relative">
@@ -133,7 +133,7 @@ const Register = ({ onToggle }) => {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="h-12 text-base pl-10 border-2 border-gray-200 dark:border-gray-700 focus:border-primary transition-colors bg-white/70 dark:bg-gray-800/70"
+              className="h-12 text-base pl-10 border-2 border-gray-200 dark:border-gray-700 focus:border-sky-500 transition-colors bg-white/70 dark:bg-gray-800/70"
             />
           </motion.div>
           {error && (
@@ -173,7 +173,7 @@ const Register = ({ onToggle }) => {
           <button
             type="button"
             onClick={onToggle}
-            className="text-primary hover:text-primary/80 font-medium transition-colors hover:underline"
+            className="text-sky-500 hover:text-sky-600 font-medium transition-colors hover:underline"
           >
             Already have an account? <span className="font-bold">Sign in</span>
           </button>

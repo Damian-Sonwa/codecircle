@@ -129,7 +129,7 @@ const ChatWindow = () => {
               {conversation?.conversationType === 'private-circle' && isAdmin && (
                 <button
                   onClick={() => setShowAddMembers(true)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-primaryTo hover:text-primaryTo hover:scale-105"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-sky-600 hover:text-sky-600 hover:scale-105"
                   title="Add members"
                 >
                   <UserPlus className="h-4 w-4" />
@@ -137,7 +137,7 @@ const ChatWindow = () => {
               )}
             </div>
             {typingUsers.length > 0 ? (
-              <p className="text-xs text-primaryTo truncate">
+              <p className="text-xs text-sky-500 truncate">
                 {typingUsers.length === 1 ? 'Someone is typing…' : `${typingUsers.length} people typing…`}
               </p>
             ) : (

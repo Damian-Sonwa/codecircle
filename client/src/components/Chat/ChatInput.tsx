@@ -543,7 +543,7 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
                 attachment.error
                   ? 'border-rose-500/50 bg-rose-500/10 text-rose-200'
                   : attachment.uploading
-                  ? 'border-primaryTo/50 bg-primaryTo/10 text-primaryTo'
+                  ? 'border-sky-500/50 bg-sky-500/10 text-sky-500'
                   : 'border-white/10 bg-white/5 text-slate-200'
               )}
             >
@@ -602,7 +602,7 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
           whileTap={{scale: 0.95}}
           onClick={() => fileInputRef.current?.click()}
           disabled={isSending || isRecording}
-          className="flex h-10 w-10 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-slate-900/70 text-slate-200 transition hover:text-primaryTo disabled:opacity-50 touch-manipulation active:scale-95"
+          className="flex h-10 w-10 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-slate-900/70 text-slate-200 transition hover:text-sky-600 disabled:opacity-50 touch-manipulation active:scale-95"
           title="Attach file"
         >
           <Paperclip className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -619,7 +619,7 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
             'flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full transition disabled:opacity-50',
             isRecording
               ? 'bg-rose-500/20 text-rose-300'
-              : 'bg-slate-900/70 text-slate-200 hover:text-primaryTo'
+              : 'bg-slate-900/70 text-slate-200 hover:text-sky-600'
           )}
           title={isRecording ? 'Stop recording' : 'Record voice message'}
         >
@@ -637,7 +637,7 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
             onBlur={handleTypingStop}
             placeholder="Type a message..."
             disabled={isSending || isRecording}
-            className="min-h-[44px] sm:min-h-[60px] w-full resize-none rounded-full border-2 border-white/10 bg-slate-900/70 px-4 py-2.5 pr-10 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primaryTo focus:border-primaryTo transition-all duration-200 disabled:opacity-50 touch-manipulation"
+            className="min-h-[44px] sm:min-h-[60px] w-full resize-none rounded-full border-2 border-white/10 bg-slate-900/70 px-4 py-2.5 pr-10 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 disabled:opacity-50 touch-manipulation"
           />
         </div>
 
@@ -652,8 +652,8 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
           className={cn(
             'flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full transition disabled:opacity-50',
             showEmojiPicker
-              ? 'bg-primaryTo/20 text-primaryTo'
-              : 'bg-slate-900/70 text-slate-200 hover:text-primaryTo'
+              ? 'bg-sky-500/20 text-sky-500'
+              : 'bg-slate-900/70 text-slate-200 hover:text-sky-600'
           )}
           title="Add emoji"
         >
@@ -669,7 +669,7 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
           className={cn(
             'flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
             canSend
-              ? 'bg-gradient-to-tr from-primaryFrom to-primaryTo text-white hover:shadow-lg'
+              ? 'bg-gradient-to-tr from-sky-500 to-sky-500 text-white hover:bg-sky-600 hover:shadow-lg'
               : 'bg-slate-900/70 text-slate-400'
           )}
           title="Send message"

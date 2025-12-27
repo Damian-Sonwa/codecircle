@@ -138,7 +138,7 @@ export const FriendChatList = ({showSearch = true}: Props) => {
         <p className="text-sm text-slate-500 mb-6">Add friends to start chatting</p>
         <button
           onClick={() => navigate('/friends')}
-          className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:scale-105"
+          className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
         >
           Find Friends
         </button>
@@ -181,13 +181,13 @@ export const FriendChatList = ({showSearch = true}: Props) => {
                 onClick={() => handleStartChat(friend)}
                 disabled={createConversationMutation.isPending}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-xl border border-transparent bg-slate-900/50 px-3 py-3 text-left transition hover:border-primaryFrom/40',
-                  isActive ? 'border-primaryTo/50 bg-slate-900/80' : '',
+                  'flex w-full items-center gap-3 rounded-xl border border-transparent bg-slate-900/50 px-3 py-3 text-left transition hover:border-sky-500/40',
+                  isActive ? 'border-sky-500/50 bg-slate-900/80' : '',
                   createConversationMutation.isPending ? 'opacity-50 cursor-wait' : ''
                 )}
               >
                 <div className="relative flex-shrink-0">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primaryFrom to-primaryTo flex items-center justify-center text-white font-semibold text-base">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold text-base">
                     {friend.username.charAt(0).toUpperCase()}
                   </div>
                   {friend.status && (
@@ -219,7 +219,7 @@ export const FriendChatList = ({showSearch = true}: Props) => {
                 </div>
                 {unreadCount > 0 && (
                   <div className="flex-shrink-0">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primaryTo text-[10px] font-semibold text-white">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] font-semibold text-white">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   </div>

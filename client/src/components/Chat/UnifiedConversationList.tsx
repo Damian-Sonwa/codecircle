@@ -65,7 +65,7 @@ export const UnifiedConversationList = ({showSearch = true, showNewChatButton = 
       case 'friend':
         return {icon: User, label: 'Friend', color: 'text-cyan-400'};
       case 'community':
-        return {icon: Users, label: 'Community', color: 'text-primaryTo'};
+        return {icon: Users, label: 'Community', color: 'text-sky-500'};
       case 'room':
         return {icon: MessageSquare, label: 'Room', color: 'text-emerald-400'};
       case 'private-circle':
@@ -73,7 +73,7 @@ export const UnifiedConversationList = ({showSearch = true, showNewChatButton = 
       default:
         return conversation.type === 'dm'
           ? {icon: Lock, label: 'DM', color: 'text-slate-400'}
-          : {icon: Users, label: 'Group', color: 'text-primaryTo'};
+          : {icon: Users, label: 'Group', color: 'text-sky-500'};
     }
   };
 
@@ -100,7 +100,7 @@ export const UnifiedConversationList = ({showSearch = true, showNewChatButton = 
           {showNewChatButton && (
             <button
               onClick={handleNewChat}
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-primaryTo hover:text-primaryTo"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900/60 text-slate-300 transition hover:border-sky-600 hover:text-sky-600"
               title="New conversation"
             >
               <Plus className="h-4 w-4" />
@@ -135,7 +135,7 @@ export const UnifiedConversationList = ({showSearch = true, showNewChatButton = 
             {showNewChatButton && (
               <button
                 onClick={handleNewChat}
-                className="rounded-full bg-gradient-to-r from-primaryFrom to-primaryTo px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:scale-105"
+                className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
               >
                 Start a conversation
               </button>
@@ -159,8 +159,8 @@ export const UnifiedConversationList = ({showSearch = true, showNewChatButton = 
                   }
                 }}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-xl sm:rounded-2xl border border-transparent bg-slate-900/50 px-2 sm:px-3 py-2 sm:py-3 text-left transition hover:border-primaryFrom/40',
-                  isActive ? 'border-primaryTo/50 bg-slate-900/80' : ''
+                  'flex w-full items-center gap-3 rounded-xl sm:rounded-2xl border border-transparent bg-slate-900/50 px-2 sm:px-3 py-2 sm:py-3 text-left transition hover:border-sky-500/40',
+                  isActive ? 'border-sky-500/50 bg-slate-900/80' : ''
                 )}
               >
                 <div className="relative flex-shrink-0">

@@ -80,7 +80,7 @@ export const NavigationDrawer = () => {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="group fixed left-2 top-2 sm:left-4 sm:top-4 z-40 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl border border-white/10 bg-slate-900/70 text-slate-100 shadow-glass transition-all hover:border-primaryTo hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/50"
+        className="group fixed left-2 top-2 sm:left-4 sm:top-4 z-40 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl border border-white/10 bg-slate-900/70 text-slate-100 shadow-glass transition-all hover:border-sky-600 hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
         aria-label="Open navigation menu"
       >
         <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -103,7 +103,7 @@ export const NavigationDrawer = () => {
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="rounded-full border border-white/10 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 transition-all hover:text-primaryTo hover:border-primaryTo/40 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
+                  className="rounded-full border border-white/10 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 transition-all hover:text-sky-600 hover:border-sky-600/40 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                   aria-label="Close navigation menu"
                 >
                   Close
@@ -122,8 +122,8 @@ export const NavigationDrawer = () => {
                         to={item.to}
                         className={({isActive}) =>
                           cn(
-                            'group flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30',
-                            isActive ? 'border-primaryTo/60 bg-gradient-to-r from-primaryFrom/20 to-primaryTo/20 text-white shadow-inner' : ''
+                            'group flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-300 transition-all hover:border-sky-500/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/30',
+                            isActive ? 'border-sky-500/60 bg-gradient-to-r from-sky-500/20 to-sky-500/20 text-white shadow-inner' : ''
                           )
                         }
                         onClick={() => {
@@ -135,7 +135,7 @@ export const NavigationDrawer = () => {
                       >
                         <item.icon className={cn(
                           'h-5 w-5 transition group-hover:scale-110',
-                          item.group === 'chat' ? 'text-cyan-400' : 'text-primaryTo'
+                          item.group === 'chat' ? 'text-violet-500' : 'text-sky-500'
                         )} />
                         <span>{item.label}</span>
                         {item.group === 'chat' && (
@@ -152,7 +152,7 @@ export const NavigationDrawer = () => {
                             <li key={category.label}>
                               <NavLink
                                 to={category.path}
-                                className="block rounded-xl px-3 py-2 text-xs text-slate-400 transition-all hover:bg-slate-800/70 hover:text-slate-100 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/20"
+                                className="block rounded-xl px-3 py-2 text-xs text-slate-400 transition-all hover:bg-slate-800/70 hover:text-slate-100 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                                 onClick={() => setOpen(false)}
                               >
                                 {category.label}
@@ -166,9 +166,9 @@ export const NavigationDrawer = () => {
                 })}
                 <button
                   onClick={() => setSettingsOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-slate-300 transition-all hover:border-primaryFrom/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
+                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-slate-300 transition-all hover:border-sky-500/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                 >
-                  <Settings className="h-5 w-5 text-primaryTo" />
+                  <Settings className="h-5 w-5 text-sky-500" />
                   Open Preferences
                 </button>
                 <button
@@ -180,24 +180,24 @@ export const NavigationDrawer = () => {
                 </button>
               </nav>
 
-              <div className="mt-10 rounded-3xl border border-primaryFrom/30 bg-slate-900/60 p-5">
-                <p className="text-xs uppercase tracking-widest text-primaryTo">Quick actions</p>
+              <div className="mt-10 rounded-3xl border border-sky-500/30 bg-slate-900/60 p-5">
+                <p className="text-xs uppercase tracking-widest text-sky-500">Quick actions</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleCreateQuickAction('post')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
+                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                   >
                     <Plus className="h-4 w-4" /> Create Post
                   </button>
                   <button
                     onClick={() => handleCreateQuickAction('class')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
+                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                   >
                     <Plus className="h-4 w-4" /> Create Class
                   </button>
                   <button
                     onClick={() => handleCreateQuickAction('message')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-primaryTo hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primaryTo/30"
+                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                   >
                     <Plus className="h-4 w-4" /> New Message
                   </button>
