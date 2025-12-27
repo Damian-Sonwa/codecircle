@@ -24,13 +24,23 @@ export const ClassroomPage = () => {
     enabled: appReady, // CRITICAL: Wait for appReady
   });
 
-  const {data: classes = []} = useQuery({
+  const {data: classes = [], isLoading: isLoadingClasses, error: classesError} = useQuery({
     queryKey: ['classrooms'],
     queryFn: async () => {
-      const {data} = await api.get<Classroom[]>(endpoints.classrooms.root);
-      return data;
+      try {
+        console.log('[Classroom] Fetching classrooms...');
+        const {data} = await api.get<Classroom[]>(endpoints.classrooms.root);
+        console.log('[Classroom] Received classrooms:', data?.length || 0);
+        return Array.isArray(data) ? data : [];
+      } catch (err: any) {
+        console.error('[Classroom] Error fetching classrooms:', err);
+        const errorMessage = err.userMessage || err.response?.data?.message || err.message || 'Failed to load classrooms';
+        throw new Error(errorMessage);
+      }
     },
     enabled: appReady, // CRITICAL: Wait for appReady
+    retry: 2,
+    refetchOnWindowFocus: false,
   });
 
   if (!appReady) {
@@ -88,7 +98,37 @@ export const ClassroomPage = () => {
       {/* Show regular classroom sessions below */}
       {!showClassroom && (
         <div className="mt-4 sm:mt-6 space-y-4">
-          {classes.map((classroom) => (
+          {isLoadingClasses && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-sky-500 border-r-transparent mb-4"></div>
+                <p className="text-base text-slate-400">Loading classrooms...</p>
+              </div>
+            </div>
+          )}
+          {classesError && (
+            <div className="flex items-center justify-center py-12">
+              <EmptyState
+                icon={GraduationCap}
+                title="Failed to load classrooms"
+                description={classesError instanceof Error ? classesError.message : 'Unable to load classroom sessions. Please try again.'}
+                action={{
+                  label: 'Retry',
+                  onClick: () => window.location.reload(),
+                }}
+              />
+            </div>
+          )}
+          {!isLoadingClasses && !classesError && classes.length === 0 && (
+            <div className="flex items-center justify-center py-12">
+              <EmptyState
+                icon={GraduationCap}
+                title="No classrooms available"
+                description="Classroom sessions will appear here once they are created. Check back later!"
+              />
+            </div>
+          )}
+          {!isLoadingClasses && !classesError && classes.length > 0 && classes.map((classroom) => (
             <article key={classroom._id} className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -137,7 +177,6 @@ export const ClassroomPage = () => {
               </div>
             </article>
           ))}
-          {classes.length === 0 && <p className="text-sm text-slate-400">No live classes yet. Check back soon.</p>}
         </div>
       )}
     </div>

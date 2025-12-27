@@ -1,4 +1,5 @@
 import axios from 'axios';
+import {useAuthStore} from '@/store/authStore';
 
 // Use explicit baseURL for development - direct connection to backend
 // In production, set VITE_API_URL environment variable
@@ -12,6 +13,28 @@ const api = axios.create({
   withCredentials: true, // Set to true if using cookies
   timeout: 30000, // 30 second timeout
 });
+
+// Add request interceptor to include auth token
+api.interceptors.request.use((config) => {
+  const {accessToken} = useAuthStore.getState();
+  if (accessToken && config.headers) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    // Handle 401 - Unauthorized
+    if (error.response?.status === 401) {
+      const {clearAuth} = useAuthStore.getState();
+      clearAuth();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const setAuthToken = (token) => {
   if (token) {

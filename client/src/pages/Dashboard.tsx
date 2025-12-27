@@ -13,13 +13,23 @@ export const DashboardPage = () => {
   const user = useAuthStore((state) => state.user);
   
   // Ensure data is fetched when app is ready
-  const {data: knowledge = [], isLoading: isLoadingKnowledge} = useQuery({
+  const {data: knowledge = [], isLoading: isLoadingKnowledge, error: knowledgeError} = useQuery({
     queryKey: ['knowledge', {type: 'daily-bite'}],
     queryFn: async () => {
-      const {data} = await api.get<KnowledgePost[]>(`${endpoints.knowledge.root}?type=daily-bite`);
-      return data;
+      try {
+        console.log('[Dashboard] Fetching daily bite...');
+        const {data} = await api.get<KnowledgePost[]>(`${endpoints.knowledge.root}?type=daily-bite`);
+        console.log('[Dashboard] Received knowledge:', data?.length || 0);
+        return Array.isArray(data) ? data : [];
+      } catch (err: any) {
+        console.error('[Dashboard] Error fetching knowledge:', err);
+        // Don't throw - daily bite is not critical for dashboard
+        return [];
+      }
     },
     enabled: appReady, // Only fetch when app is ready
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

@@ -1,28 +1,49 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {Heart, Bookmark, MessageCircle} from 'lucide-react';
+import {Heart, Bookmark, MessageCircle, BookOpen} from 'lucide-react';
 import {api, endpoints} from '@/services/api';
 import {type EngagementMetric, type KnowledgePost} from '@/types';
 import {useAppReady} from '@/hooks/useAppReady';
 import {AppLoader} from '@/components/layout/AppLoader';
+import {EmptyState} from '@/components/EmptyState';
 
 export const KnowledgeHubPage = () => {
   const {appReady} = useAppReady();
   const queryClient = useQueryClient();
-  const {data: posts = []} = useQuery({
+  const {data: posts = [], isLoading: isLoadingPosts, error: postsError} = useQuery({
     queryKey: ['knowledge-feed'],
     queryFn: async () => {
-      const {data} = await api.get<KnowledgePost[]>(endpoints.knowledge.root);
-      return data;
+      try {
+        console.log('[KnowledgeHub] Fetching posts...');
+        const {data} = await api.get<KnowledgePost[]>(endpoints.knowledge.root);
+        console.log('[KnowledgeHub] Received posts:', data?.length || 0);
+        return Array.isArray(data) ? data : [];
+      } catch (err: any) {
+        console.error('[KnowledgeHub] Error fetching posts:', err);
+        const errorMessage = err.userMessage || err.response?.data?.message || err.message || 'Failed to load knowledge posts';
+        throw new Error(errorMessage);
+      }
     },
     enabled: appReady, // CRITICAL: Wait for appReady
+    retry: 2,
+    refetchOnWindowFocus: false,
   });
-  const {data: leaderboard = []} = useQuery({
+  const {data: leaderboard = [], isLoading: isLoadingLeaderboard, error: leaderboardError} = useQuery({
     queryKey: ['knowledge-leaderboard'],
     queryFn: async () => {
-      const {data} = await api.get<EngagementMetric[]>(endpoints.knowledge.leaderboard);
-      return data;
+      try {
+        console.log('[KnowledgeHub] Fetching leaderboard...');
+        const {data} = await api.get<EngagementMetric[]>(endpoints.knowledge.leaderboard);
+        console.log('[KnowledgeHub] Received leaderboard entries:', data?.length || 0);
+        return Array.isArray(data) ? data : [];
+      } catch (err: any) {
+        console.error('[KnowledgeHub] Error fetching leaderboard:', err);
+        // Don't throw for leaderboard - it's not critical
+        return [];
+      }
     },
     enabled: appReady, // CRITICAL: Wait for appReady
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   if (!appReady) {
@@ -53,7 +74,28 @@ export const KnowledgeHubPage = () => {
 
       <div className="mt-4 sm:mt-6 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
         <section className="space-y-4 min-w-0">
-          {posts.map((post) => (
+          {isLoadingPosts && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-sky-500 border-r-transparent mb-4"></div>
+                <p className="text-base text-slate-400">Loading knowledge posts...</p>
+              </div>
+            </div>
+          )}
+          {postsError && (
+            <div className="flex items-center justify-center py-12">
+              <EmptyState
+                icon={BookOpen}
+                title="Failed to load posts"
+                description={postsError instanceof Error ? postsError.message : 'Unable to load knowledge posts. Please try again.'}
+                action={{
+                  label: 'Retry',
+                  onClick: () => window.location.reload(),
+                }}
+              />
+            </div>
+          )}
+          {!isLoadingPosts && !postsError && posts.length > 0 && posts.map((post) => (
             <article key={post._id} className="glass-card rounded-2xl p-4 sm:p-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -82,7 +124,13 @@ export const KnowledgeHubPage = () => {
               </div>
             </article>
           ))}
-          {posts.length === 0 && <p className="text-sm text-slate-400">No posts yet. Be the first to share knowledge!</p>}
+          {!isLoadingPosts && !postsError && posts.length === 0 && (
+            <EmptyState
+              icon={BookOpen}
+              title="No posts yet"
+              description="Be the first to share knowledge! Posts will appear here once created."
+            />
+          )}
         </section>
         <aside className="space-y-4 min-w-0">
           <div className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6">

@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 import { promises as fs } from 'fs';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import translate from '@vitalets/google-translate-api';
 
 // Load .env from server directory FIRST - before any imports that need env vars
@@ -157,20 +158,20 @@ const signToken = (user) =>
 const authenticateJWT = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization token required' });
+    return sendError(res, 401, ERROR_CODES.UNAUTHORIZED, 'UNAUTHORIZED');
   }
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const dbUser = await User.findOne({ userId: decoded.userId });
     if (!dbUser) {
-      return res.status(401).json({ error: 'User no longer exists' });
+      return sendError(res, 401, 'User account no longer exists', 'USER_NOT_FOUND');
     }
     if (dbUser.status === 'suspended') {
-      return res.status(403).json({ error: 'Account suspended' });
+      return sendError(res, 403, ERROR_CODES.ACCOUNT_SUSPENDED, 'ACCOUNT_SUSPENDED');
     }
     if (dbUser.status === 'deleted') {
-      return res.status(403).json({ error: 'Account deleted' });
+      return sendError(res, 403, ERROR_CODES.ACCOUNT_DELETED, 'ACCOUNT_DELETED');
     }
     req.user = {
       userId: dbUser.userId,
@@ -180,13 +181,13 @@ const authenticateJWT = async (req, res, next) => {
     req.currentUser = dbUser;
     return next();
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return sendError(res, 401, ERROR_CODES.INVALID_TOKEN, 'INVALID_TOKEN');
   }
 };
 
 const requireAdmin = (req, res, next) => {
   if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'superadmin')) {
-    return res.status(403).json({ error: 'Admin access required' });
+    return sendError(res, 403, ERROR_CODES.FORBIDDEN, 'ADMIN_REQUIRED');
   }
   return next();
 };
@@ -196,6 +197,37 @@ const requireSuperAdmin = (req, res, next) => {
     return res.status(403).json({ error: 'Superadmin access required' });
   }
   return next();
+};
+
+// Standardized error response helper
+const sendError = (res, statusCode, message, code = null, field = null) => {
+  const response = {
+    success: false,
+    message: message,
+  };
+  if (code) response.code = code;
+  if (field) response.field = field;
+  return res.status(statusCode).json(response);
+};
+
+// User-friendly error messages mapping
+const ERROR_CODES = {
+  INVALID_CREDENTIALS: 'Email or password is incorrect',
+  INVALID_TOKEN: 'Your session has expired. Please sign in again',
+  UNAUTHORIZED: 'You must be signed in to access this resource',
+  FORBIDDEN: 'You do not have permission to perform this action',
+  NOT_FOUND: 'The requested resource was not found',
+  VALIDATION_ERROR: 'Please check your input and try again',
+  DUPLICATE_ENTRY: 'This item already exists',
+  SERVER_ERROR: 'Something went wrong. Please try again later',
+  NETWORK_ERROR: 'Unable to connect to the server. Check your internet connection',
+  ONBOARDING_REQUIRED: 'You must complete onboarding before continuing',
+  ACCOUNT_SUSPENDED: 'Your account has been suspended',
+  ACCOUNT_DELETED: 'This account has been deleted',
+  WEAK_PASSWORD: 'Password must be at least 8 characters with uppercase, lowercase, and numbers',
+  INVALID_EMAIL: 'Please enter a valid email address',
+  USERNAME_TAKEN: 'This username is already taken',
+  EMAIL_EXISTS: 'This email is already registered',
 };
 
 const autoArchiveTechGroupMessages = async (group) => {
@@ -1643,12 +1675,12 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('[API] /api/auth/login - Error:', error.message);
     if (error.message === 'Invalid credentials') {
-      return res.status(401).json({ error: error.message });
+      return sendError(res, 401, ERROR_CODES.INVALID_CREDENTIALS, 'INVALID_CREDENTIALS');
     }
     if (error.message.includes('suspended') || error.message.includes('deleted')) {
-      return res.status(403).json({ error: error.message });
+      return sendError(res, 403, error.message, 'ACCOUNT_SUSPENDED');
     }
-    res.status(500).json({ error: 'Login failed', details: error.message });
+    sendError(res, 500, ERROR_CODES.SERVER_ERROR, 'LOGIN_FAILED');
   }
 });
 
@@ -1666,12 +1698,12 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     if (error.message === 'Invalid credentials') {
-      return res.status(401).json({ error: error.message });
+      return sendError(res, 401, ERROR_CODES.INVALID_CREDENTIALS, 'INVALID_CREDENTIALS');
     }
     if (error.message.includes('suspended') || error.message.includes('deleted')) {
-      return res.status(403).json({ error: error.message });
+      return sendError(res, 403, error.message, 'ACCOUNT_SUSPENDED');
     }
-    res.status(500).json({ error: 'Login failed', details: error.message });
+    sendError(res, 500, ERROR_CODES.SERVER_ERROR, 'LOGIN_FAILED');
   }
 });
 
@@ -1777,7 +1809,7 @@ app.delete('/api/friends/request/:targetUserId', authenticateJWT, async (req, re
     res.json({ success: true, message: 'Friend request cancelled' });
   } catch (error) {
     console.error('[API] DELETE /api/friends/request/:targetUserId - Error:', error);
-    res.status(500).json({ error: 'Failed to cancel friend request' });
+    sendError(res, 500, ERROR_CODES.SERVER_ERROR, 'FRIEND_REQUEST_CANCEL_FAILED');
   }
 });
 
@@ -1848,7 +1880,7 @@ app.post('/api/onboarding/complete', authenticateJWT, async (req, res) => {
   } catch (error) {
     console.error('[Onboarding] Onboarding completion error:', error);
     console.error('[Onboarding] Error stack:', error.stack);
-    res.status(500).json({ error: 'Unable to update onboarding status right now.' });
+    sendError(res, 500, ERROR_CODES.SERVER_ERROR, 'ONBOARDING_UPDATE_FAILED');
   }
 });
 
@@ -2010,7 +2042,7 @@ app.post('/api/friends/respond', authenticateJWT, async (req, res) => {
     res.json(payload);
   } catch (error) {
     console.error('[API] POST /api/friends/respond - Error:', error);
-    res.status(500).json({ error: 'Unable to process friend request right now.' });
+    sendError(res, 500, ERROR_CODES.SERVER_ERROR, 'FRIEND_REQUEST_PROCESS_FAILED');
   }
 });
 
@@ -2093,7 +2125,7 @@ app.post('/api/friends/request/:requesterId/respond', authenticateJWT, async (re
     });
   } catch (error) {
     console.error('[API] POST /api/friends/request/:requesterId/respond - Error:', error);
-    res.status(500).json({ error: 'Unable to respond to friend request right now.' });
+    sendError(res, 500, ERROR_CODES.SERVER_ERROR, 'FRIEND_REQUEST_RESPOND_FAILED');
   }
 });
 
@@ -4260,6 +4292,75 @@ app.delete(
   }
 );
 
+// POST /api/admin/users - Create new user (admin only)
+app.post('/api/admin/users', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { username, email, password, role = 'user' } = req.body;
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ username }, { email }]
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this username or email already exists' });
+    }
+
+    // Validate role
+    if (!['user', 'instructor', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    // Prevent creating superadmin unless current user is superadmin
+    if (role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Cannot create superadmin' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = new User({
+      userId: generateId(),
+      username,
+      email,
+      password: hashedPassword,
+      role,
+      status: 'active',
+      createdAt: new Date(),
+    });
+
+    await newUser.save();
+
+    await createAdminLog({
+      adminId: req.user.userId,
+      adminUsername: req.currentUser?.username || req.user.username || 'admin',
+      action: 'create',
+      targetUserId: newUser.userId,
+      targetUsername: newUser.username,
+      details: `Created user with role: ${role}`,
+    });
+
+    res.status(201).json({
+      success: true,
+      user: {
+        userId: newUser.userId,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+        status: newUser.status,
+      }
+    });
+  } catch (error) {
+    console.error('Admin create user error:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
 app.post(
   '/api/admin/users/:userId/role',
   authenticateJWT,
@@ -6075,7 +6176,93 @@ app.get('/api/conversations/:conversationId/messages', authenticateJWT, async (r
       return res.json({ data: serializedMessages, nextCursor });
     }
 
-    // Try to find as private chat (friend DM)
+    // Try to find as private conversation (friend DM) - check PrivateConversation first
+    // Friend conversations use format: friend-{userA}-{userB}
+    let privateConversation = null;
+    if (conversationId.startsWith('friend-')) {
+      privateConversation = await PrivateConversation.findOne({ conversationId });
+    }
+    
+    if (privateConversation && privateConversation.participants.includes(userId)) {
+      // Found PrivateConversation, now find the corresponding PrivateChat
+      // PrivateChat uses chatId = {userA}-{userB} (without 'friend-' prefix)
+      // So we need to strip 'friend-' prefix or match by participants
+      const chatIdWithoutPrefix = conversationId.replace(/^friend-/, '');
+      let privateChat = await PrivateChat.findOne({ 
+        $or: [
+          { chatId: conversationId }, // Try exact match first
+          { chatId: chatIdWithoutPrefix }, // Try without 'friend-' prefix
+          { participants: { $all: privateConversation.participants, $size: 2 } } // Match by participants
+        ]
+      });
+      
+      if (privateChat) {
+        // It's a private chat, return messages
+        let messages = filterActiveMessages(privateChat.messages || []);
+      
+      // Sort by timestamp (newest first) for pagination
+      messages.sort((a, b) => {
+        const dateA = new Date(a.timestamp || 0);
+        const dateB = new Date(b.timestamp || 0);
+        return dateB - dateA;
+      });
+
+      // Convert to frontend Message format
+      const formattedMessages = messages.map((msg) => ({
+        _id: msg.messageId,
+        conversationId: conversationId,
+        senderId: msg.userId,
+        content: msg.message || '',
+        media: (msg.attachments || []).map(att => ({
+          key: att.url,
+          url: att.url,
+          type: att.type?.startsWith('image/') ? 'image' : att.type?.startsWith('video/') ? 'video' : att.type?.startsWith('audio/') ? 'audio' : 'file',
+          mimeType: att.type,
+          size: att.size || 0
+        })),
+        replyToMessageId: undefined,
+        editedAt: undefined,
+        deletedAt: undefined,
+        reactions: (msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : {},
+        deliveredTo: [],
+        readBy: msg.readBy || [],
+        isPinned: false,
+        isEncrypted: false,
+        createdAt: msg.timestamp || new Date().toISOString(),
+        lastModified: msg.timestamp || new Date().toISOString()
+      }));
+
+      // Apply cursor-based pagination if provided
+      let resultMessages = formattedMessages;
+      if (cursor) {
+        const cursorIndex = resultMessages.findIndex(m => m._id === cursor);
+        if (cursorIndex !== -1) {
+          resultMessages = resultMessages.slice(cursorIndex + 1);
+        }
+      }
+
+      // Limit results
+      const limitedMessages = resultMessages.slice(0, limitNum);
+      const nextCursor = limitedMessages.length === limitNum && resultMessages.length > limitNum 
+        ? limitedMessages[limitedMessages.length - 1]._id 
+        : undefined;
+
+      // Reverse to show oldest first (chat order)
+      limitedMessages.reverse();
+
+      console.log(`[API] GET /api/conversations/${conversationId}/messages - Returning ${limitedMessages.length} messages for private chat`);
+      return res.json({
+        data: limitedMessages,
+        nextCursor
+      });
+      } else {
+        // PrivateConversation exists but no PrivateChat yet - return empty array
+        console.log(`[API] GET /api/conversations/${conversationId}/messages - PrivateConversation found but no messages yet`);
+        return res.json({ data: [], nextCursor: undefined });
+      }
+    }
+
+    // Try to find as private chat (friend DM) - fallback for old format or direct chatId lookup
     let privateChat = await PrivateChat.findOne({ chatId: conversationId });
     if (privateChat && privateChat.participants.includes(userId)) {
       // It's a private chat, return messages
@@ -6131,7 +6318,7 @@ app.get('/api/conversations/:conversationId/messages', authenticateJWT, async (r
       // Reverse to show oldest first (chat order)
       limitedMessages.reverse();
 
-      console.log(`[API] GET /api/conversations/${conversationId}/messages - Returning ${limitedMessages.length} messages for private chat`);
+      console.log(`[API] GET /api/conversations/${conversationId}/messages - Returning ${limitedMessages.length} messages for private chat (fallback)`);
       return res.json({
         data: limitedMessages,
         nextCursor

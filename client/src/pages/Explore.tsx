@@ -9,6 +9,8 @@ import {useChatStore} from '@/store/chatStore';
 import {SkillAssessmentModal} from '@/components/Explore/SkillAssessmentModal';
 import {useAppReady} from '@/hooks/useAppReady';
 import {AppLoader} from '@/components/layout/AppLoader';
+import {EmptyState} from '@/components/EmptyState';
+import {Users} from 'lucide-react';
 
 const skills = ['Fullstack', 'Backend', 'Frontend', 'Cybersecurity', 'Data Science', 'Cloud', 'UI/UX', 'AI/ML'];
 
@@ -37,12 +39,21 @@ export const ExplorePage = () => {
   const {data: techGroups = [], isLoading, error} = useQuery({
     queryKey: ['tech-groups-explore'],
     queryFn: async () => {
-      const groups = await techGroupsAPI.list();
-      return groups;
+      try {
+        console.log('[Explore] Fetching tech groups...');
+        const groups = await techGroupsAPI.list();
+        console.log('[Explore] Received groups:', groups?.length || 0);
+        return Array.isArray(groups) ? groups : [];
+      } catch (err: any) {
+        console.error('[Explore] Error fetching tech groups:', err);
+        const errorMessage = err.userMessage || err.response?.data?.message || err.message || 'Failed to load tech groups';
+        throw new Error(errorMessage);
+      }
     },
     enabled: appReady, // CRITICAL: Wait for appReady
     retry: 2,
     staleTime: 30000, // Cache for 30 seconds
+    refetchOnWindowFocus: false,
   });
 
   if (!appReady) {
@@ -178,7 +189,13 @@ export const ExplorePage = () => {
         {error && (
           <div className="col-span-2 text-center py-12">
             <p className="text-base text-rose-400 mb-2">Failed to load tech groups</p>
-            <p className="text-sm text-slate-500">Please refresh the page or check your connection</p>
+            <p className="text-sm text-slate-500 mb-4">{error instanceof Error ? error.message : 'Please refresh the page or check your connection'}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-sky-500 px-4 py-2 text-base font-semibold text-white hover:bg-sky-600 min-h-[44px] touch-manipulation"
+            >
+              Retry
+            </button>
           </div>
         )}
         {!isLoading && !error && filteredGroups.length > 0 && filteredGroups.map((group) => (
@@ -215,9 +232,12 @@ export const ExplorePage = () => {
           </div>
         )}
         {!isLoading && !error && techGroups.length === 0 && (
-          <div className="col-span-2 text-center py-12">
-            <p className="text-base text-slate-400 mb-2">No tech groups available yet</p>
-            <p className="text-sm text-slate-500">Groups will appear here once created</p>
+          <div className="col-span-2 flex items-center justify-center py-12">
+            <EmptyState
+              icon={Users}
+              title="No tech groups available"
+              description="Tech groups will appear here once they are created. Check back later or create your own group."
+            />
           </div>
         )}
       </section>
