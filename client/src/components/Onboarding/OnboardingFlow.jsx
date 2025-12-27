@@ -967,6 +967,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
     tour: renderTour,
   };
 
+  // CONDITIONAL RETURN AFTER ALL HOOKS
   // Handle visibility prop (for compatibility with AppLayout)
   // If visible is provided and false, don't render
   if (visible !== undefined && !visible) {
