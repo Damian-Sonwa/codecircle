@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {AnimatePresence, motion} from 'framer-motion';
-import {NavLink} from 'react-router-dom';
+import {NavLink, useNavigate} from 'react-router-dom';
 import {
   LayoutDashboard,
   MessagesSquare,
@@ -53,12 +53,19 @@ export const NavigationDrawer = () => {
   const [open, setOpen] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const {user, clearAuth} = useAuthStore();
+  const navigate = useNavigate();
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen);
   const pushNotification = useNotificationStore((state) => state.push);
 
   const handleLogout = async () => {
-    await api.post(endpoints.auth.logout);
-    clearAuth();
+    try {
+      await api.post(endpoints.auth.logout);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      clearAuth();
+      navigate('/login');
+    }
   };
 
   const handleCreateQuickAction = (type: 'post' | 'class' | 'message') => {

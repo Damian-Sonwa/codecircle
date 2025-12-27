@@ -17,10 +17,17 @@ export const FriendRequestsPage = () => {
     queryFn: async () => {
       const {data} = await api.get<{
         friends: UserSummary[];
-        friendRequests: UserSummary[];
-        sentFriendRequests: UserSummary[];
+        incomingRequests: UserSummary[];
+        outgoingRequests: UserSummary[];
+        friendRequests?: UserSummary[]; // Legacy field
+        sentFriendRequests?: UserSummary[]; // Legacy field
       }>(endpoints.users.friends);
-      return data;
+      // Map legacy fields to new fields for compatibility
+      return {
+        friends: data.friends || [],
+        incomingRequests: data.incomingRequests || data.friendRequests || [],
+        outgoingRequests: data.outgoingRequests || data.sentFriendRequests || [],
+      };
     }
   });
 
@@ -64,12 +71,13 @@ export const FriendRequestsPage = () => {
   const respondMutation = useMutation({
     mutationFn: ({requesterId, accept}: {requesterId: string; accept: boolean}) =>
       api.post(endpoints.friends.respond(requesterId), {accept}),
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({queryKey: ['friends']});
       pushNotification({
         id: `request-${variables.requesterId}-${Date.now()}`,
         title: variables.accept ? 'Friend request accepted' : 'Friend request declined',
-        message: variables.accept ? 'You are now friends!' : 'Request declined'
+        message: data?.data?.message || (variables.accept ? 'You are now friends!' : 'Request declined'),
+        type: variables.accept ? 'success' : 'info'
       });
     }
   });
@@ -108,8 +116,8 @@ export const FriendRequestsPage = () => {
     );
   }
 
-  const incomingRequests = data?.friendRequests ?? [];
-  const outgoingRequests = data?.sentFriendRequests ?? [];
+  const incomingRequests = data?.incomingRequests ?? [];
+  const outgoingRequests = data?.outgoingRequests ?? [];
 
   return (
     <div className="space-y-6 sm:space-y-8">
