@@ -118,8 +118,8 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <BrowserRouter>
+    <BrowserRouter>
+      <ErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
           <Routes>
           {/* Default route redirects to login */}
@@ -269,7 +269,7 @@ export default function App() {
           />
           </Routes>
         </Suspense>
-      </BrowserRouter>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </BrowserRouter>
   );
 }

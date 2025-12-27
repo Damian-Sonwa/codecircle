@@ -79,8 +79,15 @@ interface ErrorFallbackProps {
   onReset: () => void;
 }
 
-const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onReset }) => {
+// ErrorFallback component that safely handles navigation
+// Since BrowserRouter now wraps ErrorBoundary, we can safely use useNavigate
+const ErrorFallbackInner: React.FC<ErrorFallbackProps> = ({ error, onReset }) => {
+  // useNavigate is safe here because BrowserRouter wraps ErrorBoundary in App.tsx
   const navigate = useNavigate();
+
+  const handleGoHome = () => {
+    navigate('/dashboard');
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
@@ -120,7 +127,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onReset }) => {
           </button>
           
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={handleGoHome}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-base font-semibold text-gray-700 dark:text-gray-300 transition hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 min-h-[44px] touch-manipulation"
           >
             <Home className="h-4 w-4" />
@@ -130,6 +137,12 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onReset }) => {
       </div>
     </div>
   );
+};
+
+// Wrap ErrorFallbackInner to safely handle Router context
+const ErrorFallback: React.FC<ErrorFallbackProps> = (props) => {
+  // Always render - Router should be available since BrowserRouter wraps ErrorBoundary
+  return <ErrorFallbackInner {...props} />;
 };
 
 // HOC wrapper for functional components
