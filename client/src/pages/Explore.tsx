@@ -56,11 +56,8 @@ export const ExplorePage = () => {
     refetchOnWindowFocus: false,
   });
 
-  if (!appReady) {
-    return <AppLoader message="Loading tech groups..." />;
-  }
-
   // Filter groups by active skill (match topics or name)
+  // This hook MUST be called unconditionally, even if techGroups is undefined
   const filteredGroups = useMemo(() => {
     if (!techGroups || techGroups.length === 0) return [];
     
@@ -89,6 +86,11 @@ export const ExplorePage = () => {
       return keywords.some(keyword => searchText.includes(keyword.toLowerCase()));
     });
   }, [techGroups, activeSkill]);
+
+  // CONDITIONAL RETURN AFTER ALL HOOKS
+  if (!appReady) {
+    return <AppLoader message="Loading tech groups..." />;
+  }
 
   const handleJoin = async (groupId: string, groupName: string) => {
     if (!user) {

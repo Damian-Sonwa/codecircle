@@ -15,6 +15,7 @@ import {AppLoader} from '@/components/layout/AppLoader';
 import {EmptyState} from '@/components/EmptyState';
 
 export const MyTechCirclePage = () => {
+  // ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY CONDITIONAL RETURNS
   const {appReady} = useAppReady();
   const activeConversationId = useChatStore((state) => state.activeConversationId);
   const {data: conversations, isLoading, error} = useConversations({type: 'private-circle'});
@@ -26,11 +27,8 @@ export const MyTechCirclePage = () => {
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
-  if (!appReady) {
-    return <AppLoader message="Loading tech circles..." />;
-  }
-
   // Filter to only show private circle conversations
+  // This hook MUST be called unconditionally, even if conversations is undefined
   const circleConversations = useMemo(() => {
     if (!conversations) return [];
     return conversations.filter((conv) => conv.conversationType === 'private-circle');
@@ -41,23 +39,7 @@ export const MyTechCirclePage = () => {
     return circleConversations.find((conv) => conv._id === activeConversationId);
   }, [activeConversationId, circleConversations]);
 
-  // Show error state
-  if (error) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <EmptyState
-          icon={Users}
-          title="Unable to load circles"
-          description="We couldn't load your tech circles. Please check your connection and try again."
-          action={{
-            label: 'Retry',
-            onClick: () => window.location.reload(),
-          }}
-        />
-      </div>
-    );
-  }
-
+  // ALL MUTATION HOOKS MUST BE CALLED BEFORE CONDITIONAL RETURNS
   const createCircleMutation = useMutation({
     mutationFn: async (data: {name: string; description: string; memberIds: string[]}) => {
       const response = await api.post(endpoints.privateCircles.create, data);
