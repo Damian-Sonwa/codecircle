@@ -1829,7 +1829,13 @@ app.post('/api/friends/request', authenticateJWT, async (req, res) => {
     }
 
     const payload = await buildFriendPayload(requesterId);
-    res.json(payload);
+    // Return in format expected by frontend
+    res.json({
+      friends: payload.friends || [],
+      friendRequests: payload.incomingRequests || [],
+      sentFriendRequests: payload.outgoingRequests || [],
+      message: 'Friend request sent successfully'
+    });
   } catch (error) {
     console.error('[API] POST /api/friends/request - Error:', error);
     if (error.code === 11000) {
@@ -1986,7 +1992,13 @@ app.post('/api/friends/request/:requesterId/respond', authenticateJWT, async (re
     }
 
     const payload = await buildFriendPayload(recipientId);
-    res.json(payload);
+    // Return in format expected by frontend
+    res.json({
+      friends: payload.friends || [],
+      friendRequests: payload.incomingRequests || [],
+      sentFriendRequests: payload.outgoingRequests || [],
+      message: accept ? 'Friend request accepted' : 'Friend request declined'
+    });
   } catch (error) {
     console.error('[API] POST /api/friends/request/:requesterId/respond - Error:', error);
     res.status(500).json({ error: 'Unable to respond to friend request right now.' });
