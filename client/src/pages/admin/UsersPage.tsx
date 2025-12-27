@@ -1,7 +1,7 @@
 import {useState, useMemo} from 'react';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import {api, endpoints} from '@/services/api';
-import {Search, Edit, Trash2, Shield, UserX, UserCheck, Mail, Calendar} from 'lucide-react';
+import {Search, Edit, Trash2, Shield, UserX, UserCheck, Mail, Calendar, UserPlus} from 'lucide-react';
 import {motion, AnimatePresence} from 'framer-motion';
 import {useNotificationStore} from '@/store/notificationStore';
 import {cn} from '@/utils/styles';
@@ -98,6 +98,31 @@ export const UsersPage = () => {
     },
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: {username: string; email: string; password: string; role: string}) => {
+      const {data} = await api.post(endpoints.admin.createUser, userData);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ['admin-users']});
+      setShowAddModal(false);
+      pushNotification({
+        id: `user-created-${Date.now()}`,
+        title: 'User created',
+        message: 'New user has been created successfully',
+        type: 'success',
+      });
+    },
+    onError: (error: any) => {
+      pushNotification({
+        id: `user-create-error-${Date.now()}`,
+        title: 'Failed to create user',
+        message: error.response?.data?.error || 'Could not create user',
+        type: 'error',
+      });
+    },
+  });
+
   const handleSuspend = (user: User) => {
     if (confirm(`Are you sure you want to suspend ${user.username}?`)) {
       suspendUserMutation.mutate(user.userId);
@@ -129,9 +154,18 @@ export const UsersPage = () => {
 
   return (
     <div className="p-4 sm:p-6 md:p-8">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">User Management</h1>
-        <p className="text-sm sm:text-base text-slate-400">Manage users, roles, and permissions</p>
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">User Management</h1>
+          <p className="text-sm sm:text-base text-slate-400">Manage users, roles, and permissions</p>
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 text-white font-semibold hover:bg-sky-600 transition shadow-md"
+        >
+          <UserPlus className="h-4 w-4" />
+          <span>Add User</span>
+        </button>
       </div>
 
       {/* Filters */}
@@ -406,6 +440,15 @@ export const UsersPage = () => {
             }}
           />
         )}
+        {showAddModal && (
+          <AddUserModal
+            onClose={() => setShowAddModal(false)}
+            onSave={(userData) => {
+              createUserMutation.mutate(userData);
+            }}
+            isLoading={createUserMutation.isPending}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
@@ -503,6 +546,108 @@ const EditUserModal = ({
               className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
             >
               Save Changes
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+const AddUserModal = ({
+  onClose,
+  onSave,
+  isLoading,
+}: {
+  onClose: () => void;
+  onSave: (userData: {username: string; email: string; password: string; role: string}) => void;
+  isLoading: boolean;
+}) => {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('user');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({username, email, password, role});
+  };
+
+  return (
+    <motion.div
+      initial={{opacity: 0}}
+      animate={{opacity: 1}}
+      exit={{opacity: 0}}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 sm:p-6"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{scale: 0.95, opacity: 0}}
+        animate={{scale: 1, opacity: 1}}
+        exit={{scale: 0.95, opacity: 0}}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-slate-900 rounded-xl border border-white/10 p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+      >
+        <h2 className="text-xl font-semibold text-white mb-4">Add New User</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              required
+              minLength={6}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              <option value="user">User</option>
+              <option value="instructor">Instructor</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 rounded-lg border border-white/10 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50"
+            >
+              {isLoading ? 'Creating...' : 'Create User'}
             </button>
           </div>
         </form>

@@ -110,12 +110,12 @@ export const FriendChatsPageEnhanced = () => {
   ];
 
   return (
-    <div className="relative -mx-3 sm:-mx-4 md:-mx-6 -mb-8 sm:-mb-14 -mt-4" style={{minHeight: 'calc(100vh - 20rem)'}}>
-      <div className="glass-card mb-4 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="relative -mx-3 sm:-mx-4 md:-mx-6 -mb-4 sm:-mb-8 -mt-4" style={{minHeight: 'calc(100vh - 20rem)'}}>
+      <div className="glass-card mb-3 rounded-2xl p-3 sm:p-4">
+        <div className="mb-3 flex items-center justify-between">
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-white mb-1">Friend Zone</h2>
-            <p className="text-xs sm:text-sm text-slate-400">Social & casual conversations</p>
+            <h2 className="text-lg font-semibold text-white mb-1">Friend Zone</h2>
+            <p className="text-sm text-slate-400">Social & casual conversations</p>
           </div>
         </div>
 
@@ -129,16 +129,16 @@ export const FriendChatsPageEnhanced = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 text-sm font-medium transition relative',
+                  'flex items-center gap-2 px-4 py-3 text-base font-medium transition relative min-h-[44px] touch-manipulation',
                   isActive ? 'text-sky-500' : 'text-slate-400 hover:text-slate-200'
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-5 w-5" />
                 <span>{tab.label}</span>
                 {tab.count > 0 && (
                   <span
                     className={cn(
-                      'rounded-full px-1.5 py-0.5 text-xs',
+                      'rounded-lg px-2 py-1 text-sm',
                       isActive ? 'bg-sky-500/20 text-sky-500' : 'bg-slate-700 text-slate-400'
                     )}
                   >
@@ -159,7 +159,7 @@ export const FriendChatsPageEnhanced = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 min-h-[400px]">
+      <div className="glass-card rounded-2xl p-3 sm:p-4 min-h-[400px]">
         {activeTab === 'friends' && (
           <AppShell
             sidebar={<FriendChatList showSearch />}
@@ -168,7 +168,7 @@ export const FriendChatsPageEnhanced = () => {
                 <PrivateChatWindow key={activeConversationId} />
               ) : (
                 <div className="flex flex-1 items-center justify-center">
-                  <div className="text-center max-w-sm">
+                  <div className="text-center max-w-sm px-4">
                     <MessageSquare className="h-16 w-16 text-slate-500 mx-auto mb-4" />
                     <p className="text-base font-medium text-slate-300 mb-2">Select a friend to start chatting</p>
                     <p className="text-sm text-slate-500">Choose a friend from the list to begin your conversation</p>
@@ -188,7 +188,7 @@ export const FriendChatsPageEnhanced = () => {
                 ))}
               </div>
             ) : friendRequests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <UserPlus className="h-16 w-16 text-slate-500 mb-4" />
                 <p className="text-base font-medium text-slate-300 mb-2">No pending requests</p>
                 <p className="text-sm text-slate-500">All caught up!</p>
@@ -198,21 +198,21 @@ export const FriendChatsPageEnhanced = () => {
                 {friendRequests.map((request) => (
                   <div
                     key={request._id}
-                    className="glass-card rounded-xl sm:rounded-2xl p-4 flex items-center justify-between"
+                    className="glass-card rounded-xl p-4 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold">
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold text-base">
                         {request.username.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-white">{request.username}</p>
-                        <p className="text-xs text-slate-400">Wants to be friends</p>
+                        <p className="text-base font-semibold text-white">{request.username}</p>
+                        <p className="text-sm text-slate-400">Wants to be friends</p>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => navigate('/friends/requests')}
-                        className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
+                        className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-3 text-base font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 min-h-[44px] touch-manipulation"
                       >
                         View
                       </button>

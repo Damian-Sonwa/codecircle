@@ -21,7 +21,7 @@ const Button = React.forwardRef(({ className, variant = 'default', size = 'defau
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] active:opacity-70 active:shadow-inner',
+        'inline-flex items-center justify-center rounded-lg text-base font-medium ring-offset-background transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] active:opacity-70 active:shadow-inner touch-manipulation',
         variants[variant],
         sizes[size],
         className

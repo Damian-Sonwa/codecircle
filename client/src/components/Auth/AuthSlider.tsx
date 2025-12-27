@@ -4,6 +4,7 @@ import {api, endpoints} from '@/services/api';
 import {useAuthStore} from '@/store/authStore';
 import {useNotificationStore} from '@/store/notificationStore';
 import {PostAuthLoading} from './PostAuthLoading';
+import {validateForm, commonRules, type ValidationResult} from '@/utils/validation';
 
 interface Props {
   defaultView?: 'login' | 'register';
@@ -18,6 +19,7 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
   const [loading, setLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const setAuth = useAuthStore((state) => state.setAuth);
   const pushNotification = useNotificationStore((state) => state.push);
 
@@ -41,6 +43,38 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setErrors({});
+    
+    // Client-side validation
+    if (view === 'login') {
+      const loginValidation = validateForm(
+        {identifier, password},
+        {
+          identifier: commonRules.required,
+          password: commonRules.required,
+        }
+      );
+      
+      if (!loginValidation.isValid) {
+        setErrors(loginValidation.errors);
+        return;
+      }
+    } else {
+      const signupValidation = validateForm(
+        {username, email, password},
+        {
+          username: commonRules.username,
+          email: commonRules.email,
+          password: commonRules.password,
+        }
+      );
+      
+      if (!signupValidation.isValid) {
+        setErrors(signupValidation.errors);
+        return;
+      }
+    }
+    
     setLoading(true);
     try {
       if (view === 'login') {
@@ -78,21 +112,25 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
           window.location.href = '/dashboard';
         }, 1000);
       }
-    } catch (error: unknown) {
-      const err = error as {config?: {url?: string; baseURL?: string}; response?: {data?: {error?: string}}; message?: string};
+    } catch (error: any) {
       console.error('[Auth] Error:', error);
-      console.error('[Auth] Request URL:', err.config?.url);
-      console.error('[Auth] Base URL:', err.config?.baseURL);
-      console.error('[Auth] Full error:', err.response?.data || err.message);
       
-      // Show error notification
-      const errorMessage = err.response?.data?.error || err.message || 'Authentication failed. Please check your connection and try again.';
-      pushNotification({
-        id: `auth-error-${Date.now()}`,
-        title: view === 'login' ? 'Login Failed' : 'Signup Failed',
-        message: errorMessage,
-        type: 'error'
-      });
+      // Extract user-friendly error message
+      const errorMessage = error.userMessage || error.response?.data?.message || error.response?.data?.error || error.message || 'Authentication failed. Please check your connection and try again.';
+      const errorField = error.errorField;
+      
+      // Set field-specific error if field is provided
+      if (errorField) {
+        setErrors({[errorField]: errorMessage});
+      } else {
+        // Show general error notification
+        pushNotification({
+          id: `auth-error-${Date.now()}`,
+          title: view === 'login' ? 'Login Failed' : 'Signup Failed',
+          message: errorMessage,
+          type: 'error'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -114,8 +152,12 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
       <div className="relative w-full max-w-md">
         {/* Logo/Branding */}
         <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">CodeCircle</h1>
-          <p className="text-sm sm:text-base text-white/80">Where Tech Minds Meet &amp; Learn</p>
+          <h1 className="mb-2">
+            <span className="text-4xl sm:text-5xl md:text-6xl font-bold text-white drop-shadow-lg">CodeCircle</span>
+          </h1>
+          <p className="mt-3">
+            <span className="text-lg sm:text-xl md:text-2xl text-white/90 font-medium drop-shadow-md">Where Tech Minds Meet &amp; Learn</span>
+          </p>
         </div>
 
         {/* Form Card */}
@@ -175,11 +217,21 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                   </label>
                   <input
                     value={username}
-                    onChange={(event) => setUsername(event.target.value)}
+                    onChange={(event) => {
+                      setUsername(event.target.value);
+                      if (errors.username) setErrors({...errors, username: ''});
+                    }}
                     required
-                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition duration-200"
+                    className={`w-full rounded-lg border bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 transition duration-200 ${
+                      errors.username
+                        ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
+                        : 'border-gray-200 dark:border-gray-700 focus:ring-sky-500 focus:border-sky-500'
+                    }`}
                     placeholder="Choose a username"
                   />
+                  {errors.username && (
+                    <p className="mt-1 text-xs text-rose-500">{errors.username}</p>
+                  )}
                 </div>
               )}
 
@@ -191,11 +243,21 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      if (errors.email) setErrors({...errors, email: ''});
+                    }}
                     required
-                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition duration-200"
+                    className={`w-full rounded-lg border bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 transition duration-200 ${
+                      errors.email
+                        ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
+                        : 'border-gray-200 dark:border-gray-700 focus:ring-sky-500 focus:border-sky-500'
+                    }`}
                     placeholder="your@email.com"
                   />
+                  {errors.email && (
+                    <p className="mt-1 text-xs text-rose-500">{errors.email}</p>
+                  )}
                 </div>
               )}
 
@@ -206,11 +268,21 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                   </label>
                   <input
                     value={identifier}
-                    onChange={(event) => setIdentifier(event.target.value)}
+                    onChange={(event) => {
+                      setIdentifier(event.target.value);
+                      if (errors.identifier) setErrors({...errors, identifier: ''});
+                    }}
                     required
-                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition duration-200"
+                    className={`w-full rounded-lg border bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 transition duration-200 ${
+                      errors.identifier
+                        ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
+                        : 'border-gray-200 dark:border-gray-700 focus:ring-sky-500 focus:border-sky-500'
+                    }`}
                     placeholder="Enter your email or username"
                   />
+                  {errors.identifier && (
+                    <p className="mt-1 text-xs text-rose-500">{errors.identifier}</p>
+                  )}
                 </div>
               )}
 
@@ -221,11 +293,21 @@ export const AuthSlider = ({defaultView = 'login'}: Props) => {
                 <input
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (errors.password) setErrors({...errors, password: ''});
+                  }}
                   required
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition duration-200"
+                  className={`w-full rounded-lg border bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 transition duration-200 ${
+                    errors.password
+                      ? 'border-rose-500 focus:ring-rose-500 focus:border-rose-500'
+                      : 'border-gray-200 dark:border-gray-700 focus:ring-sky-500 focus:border-sky-500'
+                  }`}
                   placeholder="Enter your password"
                 />
+                {errors.password && (
+                  <p className="mt-1 text-xs text-rose-500">{errors.password}</p>
+                )}
               </div>
 
               <button

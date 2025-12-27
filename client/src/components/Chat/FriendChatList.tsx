@@ -172,7 +172,7 @@ export const FriendChatList = ({showSearch = true}: Props) => {
         <p className="text-sm text-slate-500 mb-6">Add friends to start chatting</p>
         <button
           onClick={() => navigate('/friends/requests')}
-          className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105"
+          className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-base font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 min-h-[44px] touch-manipulation"
         >
           Find Friends
         </button>
@@ -183,14 +183,14 @@ export const FriendChatList = ({showSearch = true}: Props) => {
   return (
     <div className="flex flex-col h-full">
       {showSearch && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2">
-          <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">
+          <Search className="h-5 w-5 text-slate-400 flex-shrink-0" />
           <input
             type="search"
             placeholder="Search friends..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none"
+            className="w-full bg-transparent text-base text-slate-200 placeholder:text-slate-500 focus:outline-none min-h-[44px] touch-manipulation"
           />
         </div>
       )}

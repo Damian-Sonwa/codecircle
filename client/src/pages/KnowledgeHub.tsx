@@ -2,23 +2,32 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {Heart, Bookmark, MessageCircle} from 'lucide-react';
 import {api, endpoints} from '@/services/api';
 import {type EngagementMetric, type KnowledgePost} from '@/types';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 
 export const KnowledgeHubPage = () => {
+  const {appReady} = useAppReady();
   const queryClient = useQueryClient();
   const {data: posts = []} = useQuery({
     queryKey: ['knowledge-feed'],
     queryFn: async () => {
       const {data} = await api.get<KnowledgePost[]>(endpoints.knowledge.root);
       return data;
-    }
+    },
+    enabled: appReady, // CRITICAL: Wait for appReady
   });
   const {data: leaderboard = []} = useQuery({
     queryKey: ['knowledge-leaderboard'],
     queryFn: async () => {
       const {data} = await api.get<EngagementMetric[]>(endpoints.knowledge.leaderboard);
       return data;
-    }
+    },
+    enabled: appReady, // CRITICAL: Wait for appReady
   });
+
+  if (!appReady) {
+    return <AppLoader message="Loading knowledge hub..." />;
+  }
 
   const likeMutation = useMutation({
     mutationFn: (id: string) => api.post(endpoints.knowledge.like(id)),
@@ -30,22 +39,22 @@ export const KnowledgeHubPage = () => {
   });
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-8 sm:pb-14 pt-16 sm:pt-20 md:pt-24">
-      <header className="flex flex-col gap-4 sm:gap-6 rounded-2xl sm:rounded-[2rem] border border-white/10 bg-slate-900/60 p-4 sm:p-6 md:p-10 shadow-glass lg:flex-row lg:items-center lg:justify-between">
+    <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-4 sm:pb-8 pt-12 sm:pt-16">
+      <header className="flex flex-col gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6 shadow-glass lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] sm:tracking-[0.35em] text-slate-400">Knowledge Hub</p>
-          <h1 className="mt-2 sm:mt-3 text-xl sm:text-2xl md:text-3xl font-semibold text-white">Stay sharp with curated insights</h1>
-          <p className="mt-2 max-w-lg text-xs sm:text-sm text-slate-300">Short tutorials, daily tech bites, and quick challenges from the community.</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Knowledge Hub</p>
+          <h1 className="mt-2 text-xl sm:text-2xl md:text-3xl font-semibold text-white">Stay sharp with curated insights</h1>
+          <p className="mt-2 max-w-lg text-base text-slate-300">Short tutorials, daily tech bites, and quick challenges from the community.</p>
         </div>
-        <button className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift whitespace-nowrap mt-2 lg:mt-0 hover:bg-sky-600">
+        <button className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-3 text-base font-semibold text-white shadow-lift whitespace-nowrap mt-2 lg:mt-0 hover:bg-sky-600 min-h-[44px] touch-manipulation">
           Share a tutorial
         </button>
       </header>
 
-      <div className="mt-6 sm:mt-10 grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
-        <section className="space-y-4 sm:space-y-6 min-w-0">
+      <div className="mt-4 sm:mt-6 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
+        <section className="space-y-4 min-w-0">
           {posts.map((post) => (
-            <article key={post._id} className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8">
+            <article key={post._id} className="glass-card rounded-2xl p-4 sm:p-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{post.type}</p>

@@ -7,10 +7,13 @@ import {techGroupsAPI} from '@/lib/api';
 import {useAuthStore} from '@/store/authStore';
 import {useChatStore} from '@/store/chatStore';
 import {SkillAssessmentModal} from '@/components/Explore/SkillAssessmentModal';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 
 const skills = ['Fullstack', 'Backend', 'Frontend', 'Cybersecurity', 'Data Science', 'Cloud', 'UI/UX', 'AI/ML'];
 
 export const ExplorePage = () => {
+  const {appReady} = useAppReady();
   const {search} = useLocation();
   const navigate = useNavigate();
   const params = useMemo(() => new URLSearchParams(search), [search]);
@@ -22,23 +25,29 @@ export const ExplorePage = () => {
   
   // Handle groupId from URL params (when navigating from View Group button)
   useEffect(() => {
+    if (!appReady) return; // Wait for appReady before processing navigation
     const groupId = params.get('groupId');
     if (groupId) {
       setActiveConversation(groupId);
       navigate('/community-hangout', {replace: true});
     }
-  }, [params, setActiveConversation, navigate]);
+  }, [params, setActiveConversation, navigate, appReady]);
 
-  // Fetch tech groups from database
+  // Fetch tech groups from database - only when app is ready
   const {data: techGroups = [], isLoading, error} = useQuery({
     queryKey: ['tech-groups-explore'],
     queryFn: async () => {
       const groups = await techGroupsAPI.list();
       return groups;
     },
+    enabled: appReady, // CRITICAL: Wait for appReady
     retry: 2,
     staleTime: 30000, // Cache for 30 seconds
   });
+
+  if (!appReady) {
+    return <AppLoader message="Loading tech groups..." />;
+  }
 
   // Filter groups by active skill (match topics or name)
   const filteredGroups = useMemo(() => {
@@ -136,20 +145,20 @@ export const ExplorePage = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-8 sm:pb-14 pt-16 sm:pt-20 md:pt-24">
-      <header className="flex flex-col gap-4 sm:gap-6 rounded-2xl sm:rounded-[2rem] border border-white/10 bg-slate-900/60 p-4 sm:p-6 md:p-10 shadow-glass md:flex-row md:items-center md:justify-between">
+    <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-4 sm:pb-8 pt-12 sm:pt-16">
+      <header className="flex flex-col gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6 shadow-glass md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white">Explore Tech Skills</h1>
-          <p className="mt-2 max-w-xl text-xs sm:text-sm text-slate-300">
+          <p className="mt-2 max-w-xl text-base text-slate-300">
             Choose a speciality to unlock curated communities, classroom tracks, and relevant knowledge bites.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        <div className="flex flex-wrap gap-2">
           {skills.map((skill) => (
             <button
               key={skill}
               onClick={() => setActiveSkill(skill)}
-              className={skill === activeSkill ? 'rounded-xl sm:rounded-2xl bg-gradient-to-r from-sky-500 to-sky-500 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lift whitespace-nowrap' : 'rounded-xl sm:rounded-2xl border border-white/10 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-slate-200 transition hover:border-sky-600 whitespace-nowrap'}
+              className={skill === activeSkill ? 'rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-3 text-base font-semibold text-white shadow-lift whitespace-nowrap min-h-[44px] touch-manipulation' : 'rounded-lg border border-white/10 px-4 py-3 text-base text-slate-200 transition hover:border-sky-600 whitespace-nowrap min-h-[44px] touch-manipulation'}
             >
               {skill}
             </button>
@@ -157,43 +166,43 @@ export const ExplorePage = () => {
         </div>
       </header>
 
-      <section className="mt-6 sm:mt-10 grid gap-4 sm:gap-6 lg:grid-cols-2">
+      <section className="mt-4 sm:mt-6 grid gap-4 lg:grid-cols-2">
         {isLoading && (
           <div className="col-span-2 flex items-center justify-center py-12">
             <div className="text-center">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-sky-500 border-r-transparent mb-4"></div>
-              <p className="text-sm text-slate-400">Loading tech groups...</p>
+              <p className="text-base text-slate-400">Loading tech groups...</p>
             </div>
           </div>
         )}
         {error && (
           <div className="col-span-2 text-center py-12">
-            <p className="text-sm text-rose-400 mb-2">Failed to load tech groups</p>
-            <p className="text-xs text-slate-500">Please refresh the page or check your connection</p>
+            <p className="text-base text-rose-400 mb-2">Failed to load tech groups</p>
+            <p className="text-sm text-slate-500">Please refresh the page or check your connection</p>
           </div>
         )}
         {!isLoading && !error && filteredGroups.length > 0 && filteredGroups.map((group) => (
-          <motion.article key={group.groupId || group._id} whileHover={{y: -3}} className="glass-card flex flex-col gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-7">
+          <motion.article key={group.groupId || group._id} whileHover={{y: -3}} className="glass-card flex flex-col gap-3 rounded-2xl p-4 sm:p-6">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{group.type === 'classroom' ? 'Classroom' : 'Community'}</p>
-              <h2 className="mt-3 text-xl font-semibold text-white">{group.name}</h2>
-              <p className="mt-2 text-sm text-slate-300">{group.description || 'Join this community to collaborate and learn.'}</p>
+              <h2 className="mt-2 text-lg sm:text-xl font-semibold text-white">{group.name}</h2>
+              <p className="mt-2 text-base text-slate-300">{group.description || 'Join this community to collaborate and learn.'}</p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-slate-400">
+            <div className="flex items-center gap-3 text-sm text-slate-400">
               <span>Members • {group.members?.length || group.memberCount || 0}</span>
               <span className="h-1 w-1 rounded-full bg-slate-600" />
               <span>Topics • {group.topics?.length || 0}</span>
             </div>
             <div className="flex gap-2 flex-wrap">
               {group.topics && group.topics.slice(0, 5).map((tag: string) => (
-                <span key={tag} className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">
+                <span key={tag} className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-300">
                   #{tag}
                 </span>
               ))}
             </div>
             <button
               onClick={() => handleJoin(group.groupId || group._id, group.name)}
-              className="mt-auto rounded-full bg-gradient-to-r from-secondaryFrom to-secondaryTo px-4 py-2 text-sm font-semibold text-white shadow-lift"
+              className="mt-auto rounded-lg bg-gradient-to-r from-secondaryFrom to-secondaryTo px-4 py-3 text-base font-semibold text-white shadow-lift min-h-[44px] touch-manipulation"
             >
               {group.members?.includes(user?.userId) ? 'View Group' : 'Join Circle'}
             </button>
@@ -201,14 +210,14 @@ export const ExplorePage = () => {
         ))}
         {!isLoading && !error && filteredGroups.length === 0 && techGroups.length > 0 && (
           <div className="col-span-2 text-center py-12">
-            <p className="text-sm text-slate-400 mb-2">No groups found for {activeSkill}</p>
-            <p className="text-xs text-slate-500">Try another skill or create a new group</p>
+            <p className="text-base text-slate-400 mb-2">No groups found for {activeSkill}</p>
+            <p className="text-sm text-slate-500">Try another skill or create a new group</p>
           </div>
         )}
         {!isLoading && !error && techGroups.length === 0 && (
           <div className="col-span-2 text-center py-12">
-            <p className="text-sm text-slate-400 mb-2">No tech groups available yet</p>
-            <p className="text-xs text-slate-500">Groups will appear here once created</p>
+            <p className="text-base text-slate-400 mb-2">No tech groups available yet</p>
+            <p className="text-sm text-slate-500">Groups will appear here once created</p>
           </div>
         )}
       </section>

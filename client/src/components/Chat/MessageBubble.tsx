@@ -75,15 +75,15 @@ export const MessageBubble = ({message, sender, isOwn, onReact}: Props) => {
       onMouseLeave={() => setHover(false)}
     >
       {!isOwn && (
-        <div className="mt-4 sm:mt-6 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-slate-700 text-center text-xs sm:text-sm font-semibold text-slate-200 flex-shrink-0">
+        <div className="mt-4 h-8 w-8 rounded-full bg-slate-700 text-center text-sm font-semibold text-slate-200 flex-shrink-0">
           {displayName.at(0)?.toUpperCase()}
         </div>
       )}
-      <div className="max-w-[90%] sm:max-w-[85%] md:max-w-[75%] space-y-1 sm:space-y-2 min-w-0">
-        {!isOwn && <p className="text-[10px] sm:text-xs text-slate-400 truncate">{displayName}</p>}
+      <div className="max-w-[85%] space-y-1 min-w-0">
+        {!isOwn && <p className="text-sm text-slate-400 truncate">{displayName}</p>}
         <div
           className={cn(
-            'rounded-xl sm:rounded-2xl md:rounded-3xl border border-white/5 px-2.5 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-3 text-[16px] sm:text-sm leading-relaxed shadow-lift transition break-words',
+            'rounded-xl border border-white/5 px-4 py-3 text-base leading-relaxed shadow-lift transition break-words',
             isOwn
               ? 'bg-gradient-to-br from-sky-500/80 to-sky-500/70 text-white'
               : 'bg-slate-900/70 text-slate-100'

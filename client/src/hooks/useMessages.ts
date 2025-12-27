@@ -1,11 +1,14 @@
 import {useInfiniteQuery} from '@tanstack/react-query';
 import {api, endpoints} from '@/services/api';
 import {type Message, type Paginated} from '@/types';
+import {useAppReady} from '@/hooks/useAppReady';
 
 export const useMessages = (conversationId?: string) => {
+  const {appReady} = useAppReady();
+  
   return useInfiniteQuery({
     queryKey: ['messages', conversationId],
-    enabled: Boolean(conversationId),
+    enabled: appReady && Boolean(conversationId), // CRITICAL: Wait for appReady AND conversationId
     initialPageParam: undefined as string | undefined,
     queryFn: async ({pageParam}) => {
       if (!conversationId) {

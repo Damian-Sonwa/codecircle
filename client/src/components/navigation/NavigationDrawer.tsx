@@ -94,16 +94,16 @@ export const NavigationDrawer = () => {
               animate={{x: 0}}
               exit={{x: '-100%'}}
               transition={{type: 'spring', stiffness: 200, damping: 22}}
-              className="absolute left-0 top-0 h-full w-[85vw] max-w-80 overflow-y-auto bg-slate-900/70 px-4 py-6 sm:px-6 sm:py-8 shadow-lift backdrop-blur-xl"
+              className="absolute left-0 top-0 h-full w-[85vw] max-w-80 overflow-y-auto bg-slate-900/70 px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8 shadow-lift backdrop-blur-xl"
             >
               <div className="mb-8 flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Learn. Chat. Grow.</p>
-                  <h2 className="text-xl font-semibold text-slate-100">Tech Community Hub</h2>
+                  <p className="text-sm sm:text-xs uppercase tracking-[0.35em] text-slate-400">Learn. Chat. Grow.</p>
+                  <h2 className="text-lg sm:text-xl font-semibold text-slate-100">Tech Community Hub</h2>
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="rounded-full border border-white/10 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 transition-all hover:text-sky-600 hover:border-sky-600/40 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                  className="rounded-lg border border-white/10 bg-slate-800/70 px-3 py-2 text-base sm:text-xs text-slate-300 transition-all hover:text-sky-600 hover:border-sky-600/40 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30 min-h-[44px] touch-manipulation"
                   aria-label="Close navigation menu"
                 >
                   Close
@@ -122,7 +122,7 @@ export const NavigationDrawer = () => {
                         to={item.to}
                         className={({isActive}) =>
                           cn(
-                            'group flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-300 transition-all hover:border-sky-500/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/30',
+                            'group flex items-center gap-3 rounded-lg sm:rounded-xl border border-transparent px-3 py-2.5 sm:px-4 sm:py-3 text-base sm:text-sm font-medium text-slate-300 transition-all hover:border-sky-500/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/30 min-h-[44px] touch-manipulation',
                             isActive ? 'border-sky-500/60 bg-gradient-to-r from-sky-500/20 to-sky-500/20 text-white shadow-inner' : ''
                           )
                         }
@@ -139,7 +139,7 @@ export const NavigationDrawer = () => {
                         )} />
                         <span>{item.label}</span>
                         {item.group === 'chat' && (
-                          <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-500">Chat</span>
+                          <span className="ml-auto text-xs sm:text-[10px] uppercase tracking-wider text-slate-500">Chat</span>
                         )}
                       </NavLink>
                       {item.expandable && showCategories && (
@@ -152,7 +152,7 @@ export const NavigationDrawer = () => {
                             <li key={category.label}>
                               <NavLink
                                 to={category.path}
-                                className="block rounded-xl px-3 py-2 text-xs text-slate-400 transition-all hover:bg-slate-800/70 hover:text-slate-100 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                                className="block rounded-lg sm:rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-400 transition-all hover:bg-slate-800/70 hover:text-slate-100 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/20 min-h-[44px] touch-manipulation"
                                 onClick={() => setOpen(false)}
                               >
                                 {category.label}
@@ -166,45 +166,45 @@ export const NavigationDrawer = () => {
                 })}
                 <button
                   onClick={() => setSettingsOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-slate-300 transition-all hover:border-sky-500/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                  className="flex w-full items-center gap-3 rounded-lg sm:rounded-xl border border-white/10 px-3 py-2.5 sm:px-4 sm:py-3 text-left text-base sm:text-sm text-slate-300 transition-all hover:border-sky-500/40 hover:bg-slate-900/70 hover:text-slate-50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-sky-500/30 min-h-[44px] touch-manipulation"
                 >
                   <Settings className="h-5 w-5 text-sky-500" />
                   Open Preferences
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-rose-500/40 px-4 py-3 text-left text-sm text-rose-400 transition-all hover:bg-rose-500/20 hover:border-rose-500/60 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+                  className="flex w-full items-center gap-3 rounded-lg sm:rounded-xl border border-rose-500/40 px-3 py-2.5 sm:px-4 sm:py-3 text-left text-base sm:text-sm text-rose-400 transition-all hover:bg-rose-500/20 hover:border-rose-500/60 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-rose-500/30 min-h-[44px] touch-manipulation"
                 >
                   <LogOut className="h-5 w-5" />
                   Logout
                 </button>
               </nav>
 
-              <div className="mt-10 rounded-3xl border border-sky-500/30 bg-slate-900/60 p-5">
-                <p className="text-xs uppercase tracking-widest text-sky-500">Quick actions</p>
+              <div className="mt-6 sm:mt-10 rounded-xl sm:rounded-2xl md:rounded-3xl border border-sky-500/30 bg-slate-900/60 p-3 sm:p-4 md:p-5">
+                <p className="text-sm sm:text-xs uppercase tracking-widest text-sky-500">Quick actions</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => handleCreateQuickAction('post')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    className="glass-card flex items-center gap-2 rounded-lg sm:rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30 min-h-[44px] touch-manipulation"
                   >
                     <Plus className="h-4 w-4" /> Create Post
                   </button>
                   <button
                     onClick={() => handleCreateQuickAction('class')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    className="glass-card flex items-center gap-2 rounded-lg sm:rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30 min-h-[44px] touch-manipulation"
                   >
                     <Plus className="h-4 w-4" /> Create Class
                   </button>
                   <button
                     onClick={() => handleCreateQuickAction('message')}
-                    className="glass-card flex items-center gap-2 rounded-2xl px-3 py-2 text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    className="glass-card flex items-center gap-2 rounded-lg sm:rounded-xl px-3 py-2 text-sm sm:text-xs text-slate-200 transition-all hover:text-sky-600 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-500/30 min-h-[44px] touch-manipulation"
                   >
                     <Plus className="h-4 w-4" /> New Message
                   </button>
                 </div>
               </div>
 
-              <div className="mt-8 text-xs text-slate-500">
+              <div className="mt-6 sm:mt-8 text-sm sm:text-xs text-slate-500">
                 {user?.username && (
                   <p>
                     Signed in as <span className="text-slate-200">{user.username}</span>

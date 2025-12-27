@@ -23,15 +23,19 @@ import {TechCategoryPage} from '@/pages/TechCategory';
 import {AppLayout} from '@/layouts/AppLayout';
 import {AdminLayout} from '@/layouts/AdminLayout';
 import {RequireRole} from '@/components/Admin/RequireRole';
+import {OverviewPage} from '@/pages/admin/OverviewPage';
 import {AnalyticsPage} from '@/pages/admin/AnalyticsPage';
 import {UsersPage} from '@/pages/admin/UsersPage';
+import {MentorsPage} from '@/pages/admin/MentorsPage';
 import {ClassesPage} from '@/pages/admin/ClassesPage';
 import {ApprovalsPage} from '@/pages/admin/ApprovalsPage';
+import {TechGroupsPage} from '@/pages/admin/TechGroupsPage';
 import {SettingsPage as AdminSettingsPage} from '@/pages/admin/SettingsPage';
 import {useAuthStore} from '@/store/authStore';
 import {PostAuthLoading} from '@/components/Auth/PostAuthLoading';
 import {useAppReady} from '@/hooks/useAppReady';
 import {AppLoader} from '@/components/layout/AppLoader';
+import {ErrorBoundary} from '@/components/ErrorBoundary';
 
 const LoadingScreen = () => (
   <PostAuthLoading message="Warming up the glass matrix…" />
@@ -114,9 +118,10 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <Suspense fallback={<LoadingScreen />}>
-        <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
           {/* Default route redirects to login */}
           <Route index element={<Navigate to="/login" replace />} />
           
@@ -242,11 +247,14 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route index element={<Navigate to="/admin/analytics" replace />} />
+            <Route index element={<OverviewPage />} />
+            <Route path="overview" element={<OverviewPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="mentors" element={<MentorsPage />} />
             <Route path="classes" element={<ClassesPage />} />
             <Route path="approvals" element={<ApprovalsPage />} />
+            <Route path="tech-groups" element={<TechGroupsPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
           </Route>
           
@@ -259,8 +267,9 @@ export default function App() {
               </RequireOnboarding>
             } 
           />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

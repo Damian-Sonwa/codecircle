@@ -1,7 +1,7 @@
 import {useState, useEffect} from 'react';
 import {Outlet, NavLink, useNavigate} from 'react-router-dom';
 import {useAuthStore} from '@/store/authStore';
-import {LogOut, Users, BarChart3, GraduationCap, CheckCircle, Settings, Shield, Menu, X} from 'lucide-react';
+import {LogOut, Users, Users2, BarChart3, GraduationCap, CheckCircle, Settings, Shield, Menu, X} from 'lucide-react';
 import {motion, AnimatePresence} from 'framer-motion';
 import {api, endpoints} from '@/services/api';
 import {cn} from '@/utils/styles';
@@ -31,10 +31,13 @@ export const AdminLayout = () => {
   };
 
   const menuItems = [
-    {icon: BarChart3, label: 'Analytics', to: '/admin/analytics'},
+    {icon: BarChart3, label: 'Overview', to: '/admin'},
     {icon: Users, label: 'Users', to: '/admin/users'},
+    {icon: GraduationCap, label: 'Mentors', to: '/admin/mentors'},
     {icon: GraduationCap, label: 'Classes', to: '/admin/classes'},
     {icon: CheckCircle, label: 'Approvals', to: '/admin/approvals'},
+    {icon: Users2, label: 'Tech Groups', to: '/admin/tech-groups'},
+    {icon: BarChart3, label: 'Analytics', to: '/admin/analytics'},
     {icon: Settings, label: 'Settings', to: '/admin/settings'},
   ];
 

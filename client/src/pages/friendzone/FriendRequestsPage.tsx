@@ -159,16 +159,16 @@ export const FriendRequestsPage = () => {
           <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
           <h2 className="text-lg sm:text-xl font-semibold text-white">Add Friend</h2>
         </div>
-        <form onSubmit={handleSendRequest} className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+        <form onSubmit={handleSendRequest} className="glass-card rounded-2xl p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Username or email address"
-                className="w-full rounded-full border border-white/10 bg-slate-900/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full rounded-lg border border-white/10 bg-slate-900/60 py-3 pl-11 pr-3 text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 min-h-[44px] touch-manipulation"
                 disabled={isSearching || sendRequestMutation.isPending}
                 required
               />
@@ -176,22 +176,22 @@ export const FriendRequestsPage = () => {
             <button
               type="submit"
               disabled={isSearching || sendRequestMutation.isPending || !searchInput.trim()}
-              className="rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 text-base font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px] touch-manipulation"
             >
               {(isSearching || sendRequestMutation.isPending) ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                   Sending...
                 </>
               ) : (
                 <>
-                  <UserPlus className="h-4 w-4" />
+                  <UserPlus className="h-5 w-5" />
                   Send Request
                 </>
               )}
             </button>
           </div>
-          <p className="mt-3 text-xs text-slate-400">
+          <p className="mt-3 text-sm text-slate-400">
             Enter a username or email address to send a friend request
           </p>
         </form>
@@ -207,7 +207,7 @@ export const FriendRequestsPage = () => {
         </div>
 
         {incomingRequests.length === 0 ? (
-          <div className="glass-card rounded-2xl sm:rounded-3xl p-6 sm:p-8 text-center">
+          <div className="glass-card rounded-2xl p-4 sm:p-6 text-center">
             <UserPlus className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-slate-500 mb-3" />
             <p className="text-sm text-slate-400">No pending friend requests</p>
           </div>
@@ -216,22 +216,22 @@ export const FriendRequestsPage = () => {
             {incomingRequests.map((request) => (
               <div
                 key={request._id}
-                className="glass-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl p-4 sm:p-5"
+                className="glass-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl p-4 sm:p-5"
               >
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                   <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-sky-500 to-sky-500 flex items-center justify-center text-white font-semibold text-sm sm:text-base flex-shrink-0">
                     {request.username.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm sm:text-base font-semibold text-white truncate">{request.username}</p>
+                    <p className="text-base font-semibold text-white truncate">{request.username}</p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {request.skills?.slice(0, 2).map((skill) => (
-                        <span key={skill} className="text-[10px] sm:text-xs text-slate-400 bg-slate-800/50 px-2 py-0.5 rounded-full">
+                        <span key={skill} className="text-sm text-slate-400 bg-slate-800/50 px-2 py-1 rounded-lg">
                           {skill}
                         </span>
                       ))}
                       {request.skills && request.skills.length > 2 && (
-                        <span className="text-[10px] sm:text-xs text-slate-400">+{request.skills.length - 2}</span>
+                        <span className="text-sm text-slate-400">+{request.skills.length - 2}</span>
                       )}
                     </div>
                   </div>
@@ -240,14 +240,14 @@ export const FriendRequestsPage = () => {
                   <button
                     onClick={() => handleAccept(request._id || request.userId)}
                     disabled={respondMutation.isPending}
-                    className="flex-1 sm:flex-initial rounded-full bg-gradient-to-r from-sky-500 to-sky-500 px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50"
+                    className="flex-1 sm:flex-initial rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-3 text-base font-semibold text-white shadow-lift transition hover:bg-sky-600 hover:scale-105 disabled:opacity-50 min-h-[44px] touch-manipulation"
                   >
                     Accept
                   </button>
                   <button
                     onClick={() => handleDecline(request._id || request.userId)}
                     disabled={respondMutation.isPending}
-                    className="flex-1 sm:flex-initial rounded-full border border-white/10 bg-slate-900/60 px-4 sm:px-5 py-2 text-xs sm:text-sm text-slate-300 transition hover:border-rose-500/50 hover:text-rose-400 disabled:opacity-50"
+                    className="flex-1 sm:flex-initial rounded-lg border border-white/10 bg-slate-900/60 px-4 py-3 text-base text-slate-300 transition hover:border-rose-500/50 hover:text-rose-400 disabled:opacity-50 min-h-[44px] touch-manipulation"
                   >
                     Decline
                   </button>
@@ -269,7 +269,7 @@ export const FriendRequestsPage = () => {
         </div>
 
         {outgoingRequests.length === 0 ? (
-          <div className="glass-card rounded-2xl sm:rounded-3xl p-6 sm:p-8 text-center">
+          <div className="glass-card rounded-2xl p-4 sm:p-6 text-center">
             <Clock className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-slate-500 mb-3" />
             <p className="text-sm text-slate-400">No pending outgoing requests</p>
           </div>
@@ -278,7 +278,7 @@ export const FriendRequestsPage = () => {
             {outgoingRequests.map((request) => (
               <div
                 key={request._id}
-                className="glass-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl p-4 sm:p-5"
+                className="glass-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl p-4 sm:p-5"
               >
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                   <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white font-semibold text-sm sm:text-base flex-shrink-0">
@@ -298,9 +298,9 @@ export const FriendRequestsPage = () => {
                 <button
                   onClick={() => handleCancel(request._id || request.userId)}
                   disabled={cancelRequestMutation.isPending}
-                  className="w-full sm:w-auto rounded-full border border-white/10 bg-slate-900/60 px-4 sm:px-5 py-2 text-xs sm:text-sm text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto rounded-lg border border-white/10 bg-slate-900/60 px-4 py-3 text-base text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px] touch-manipulation"
                 >
-                  <X className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <X className="h-4 w-4" />
                   Cancel Request
                 </button>
               </div>

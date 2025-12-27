@@ -670,18 +670,18 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
         <h2 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-sky-500 to-violet-500 bg-clip-text text-transparent">
           Welcome to CodeCircle!
         </h2>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 max-w-xl">
+        <p className="text-base sm:text-sm text-gray-600 dark:text-gray-300 max-w-xl">
           Learn. Chat. Grow. We tailor your experience from day one so every
           connection and resource amplifies your goals.
         </p>
       </div>
       <div className="rounded-xl sm:rounded-2xl bg-gray-50 dark:bg-slate-800/60 backdrop-blur-sm p-3 sm:p-4 flex flex-col gap-2">
-        <div className="flex items-start gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-          <ShieldCheck className="h-3 w-3 sm:h-4 sm:w-4 text-sky-500 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 text-sm sm:text-xs text-gray-600 dark:text-gray-300">
+          <ShieldCheck className="h-4 w-4 sm:h-3 sm:w-3 text-sky-500 flex-shrink-0 mt-0.5" />
           <span>Your responses shape recommendations, communities, and events.</span>
         </div>
-        <div className="flex items-start gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-          <Compass className="h-3 w-3 sm:h-4 sm:w-4 text-sky-500 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 text-sm sm:text-xs text-gray-600 dark:text-gray-300">
+          <Compass className="h-4 w-4 sm:h-3 sm:w-3 text-sky-500 flex-shrink-0 mt-0.5" />
           <span>Pick interests, join specialized groups, and unlock guided tours.</span>
         </div>
       </div>
@@ -692,7 +692,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
     <div className="space-y-4 sm:space-y-5">
       <div>
         <h3 className="text-xl sm:text-2xl font-semibold mb-1 sm:mb-2">Pick your focus areas</h3>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-300">
           These power your recommendations, challenges, and mentor matches.
         </p>
       </div>
@@ -704,7 +704,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
               key={skill}
               type="button"
               onClick={() => toggleSkill(skill)}
-              className={`rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium transition-all border ${
+              className={`rounded-lg px-4 py-2.5 sm:px-4 sm:py-2 text-base sm:text-sm font-medium transition-all border min-h-[44px] touch-manipulation ${
                 isSelected
                   ? 'bg-sky-500 text-white border-sky-500 shadow-lg shadow-sky-500/30'
                   : 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
@@ -722,7 +722,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
     <div className="space-y-4 sm:space-y-5">
       <div>
         <h3 className="text-xl sm:text-2xl font-semibold mb-1 sm:mb-2">How would you describe your current level?</h3>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-300">
           We use this to tailor resources, peers, and learning paths.
         </p>
       </div>
@@ -752,14 +752,14 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
               onClick={() =>
                 setFormData((prev) => ({ ...prev, level: option.value }))
               }
-              className={`rounded-xl sm:rounded-2xl border p-3 sm:p-4 text-left transition-all hover:shadow-md ${
+              className={`rounded-lg sm:rounded-xl border p-4 sm:p-4 text-left transition-all hover:shadow-md min-h-[44px] touch-manipulation ${
                 active
                   ? 'bg-sky-500 text-white border-sky-500 shadow-xl shadow-sky-500/40'
                   : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              <div className="text-base sm:text-lg font-semibold">{option.title}</div>
-              <p className="text-xs sm:text-sm mt-1 sm:mt-2 opacity-80">{option.description}</p>
+              <div className="text-lg sm:text-lg font-semibold">{option.title}</div>
+              <p className="text-sm sm:text-xs mt-2 sm:mt-2 opacity-80">{option.description}</p>
             </button>
           );
         })}
@@ -773,13 +773,13 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
         <h3 className="text-xl sm:text-2xl font-semibold mb-1 sm:mb-2">
           A quick check before we connect you
         </h3>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-300">
           Your responses help moderators keep communities focused and supportive.
         </p>
       </div>
       <div className="grid gap-3 sm:gap-4">
         <div className="space-y-2">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200">
+          <label className="text-sm sm:text-xs font-medium text-gray-700 dark:text-gray-200">
             What brings you to CodeCircle right now?
           </label>
           <textarea
@@ -794,12 +794,12 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
                 },
               }))
             }
-            className="w-full rounded-lg sm:rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-2 sm:p-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            className="w-full rounded-lg sm:rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-3 sm:p-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px] touch-manipulation"
             placeholder="Share the goal or challenge you're working on."
           />
         </div>
         <div className="space-y-2">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200">
+          <label className="text-sm sm:text-xs font-medium text-gray-700 dark:text-gray-200">
             Tell us about a recent project or learning win.
           </label>
           <textarea
@@ -814,7 +814,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
                 },
               }))
             }
-            className="w-full rounded-lg sm:rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-2 sm:p-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            className="w-full rounded-lg sm:rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 p-3 sm:p-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px] touch-manipulation"
             placeholder="A shipped feature, passed exam, hackathon, etc."
           />
         </div>
@@ -826,7 +826,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
     <div className="space-y-4 sm:space-y-5">
       <div className="flex flex-col gap-1 sm:gap-2">
         <h3 className="text-xl sm:text-2xl font-semibold">Communities unlocked</h3>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-300">
           You&apos;re already part of the CodeCircle Welcome Lounge. Choose a few skill-based
           groups to get started with peers.
         </p>
@@ -835,13 +835,13 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Users className="h-8 w-8 sm:h-10 sm:w-10 text-sky-500 flex-shrink-0" />
           <div className="min-w-0">
-            <div className="font-semibold text-sm sm:text-lg">CodeCircle Welcome Lounge</div>
-            <p className="text-xs sm:text-sm text-sky-500/90">
+            <div className="font-semibold text-base sm:text-lg">CodeCircle Welcome Lounge</div>
+            <p className="text-sm sm:text-xs text-sky-500/90">
               Introduce yourself and meet the community team.
             </p>
           </div>
         </div>
-        <div className="text-xs sm:text-sm font-medium text-sky-500 flex-shrink-0">
+        <div className="text-sm sm:text-xs font-medium text-sky-500 flex-shrink-0">
           {formData.groups.autoJoined ? (
             <span className="flex items-center gap-1">
               <Check className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -881,7 +881,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
                 <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{group.name}</span>
                 {selected && <Check className="h-3 w-3 sm:h-4 sm:w-4 text-sky-500" />}
               </div>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1">
+              <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-300 mt-1">
                 {group.description}
               </p>
             </button>
@@ -898,15 +898,15 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
         <div className="rounded-xl sm:rounded-2xl border border-sky-500/30 bg-white dark:bg-slate-800/80 p-4 sm:p-6 shadow-lg shadow-sky-500/10">
           <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
             <Layers className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
-            <span className="uppercase text-[10px] sm:text-xs tracking-wide text-sky-500 font-semibold">
+            <span className="uppercase text-xs sm:text-xs tracking-wide text-sky-500 font-semibold">
               Guided tour
             </span>
           </div>
-          <h3 className="text-xl sm:text-2xl font-semibold mb-1 sm:mb-2 text-gray-900 dark:text-gray-100">{activeTour.title}</h3>
-          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+          <h3 className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2 text-gray-900 dark:text-gray-100">{activeTour.title}</h3>
+          <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-300">
             {activeTour.description}
           </p>
-          <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 text-xs text-gray-500 dark:text-gray-400">
+          <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 text-sm sm:text-xs text-gray-500 dark:text-gray-400">
             <span>
               Highlighting: <strong className="text-sky-500">{activeTour.title}</strong>
             </span>
@@ -920,7 +920,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
             variant="ghost"
             onClick={handleTourPrev}
             disabled={tourIndex === 0 || isProcessing}
-            className="text-xs sm:text-sm"
+            className="text-base sm:text-sm min-h-[44px] touch-manipulation"
           >
             <ArrowLeft className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             Back
@@ -1000,14 +1000,14 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-5xl my-auto"
       >
-        <div className="grid gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 shadow-2xl shadow-sky-500/10 backdrop-blur-xl p-4 sm:p-6 md:p-8 md:grid-cols-[2fr,1fr]">
+        <div className="grid gap-3 sm:gap-4 md:gap-6 rounded-xl sm:rounded-2xl md:rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 shadow-2xl shadow-sky-500/10 backdrop-blur-xl p-3 sm:p-4 md:p-6 md:grid-cols-[2fr,1fr]">
           <div className="flex flex-col min-w-0">
             <div className="mb-4 sm:mb-5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                <span className="text-[10px] sm:text-xs uppercase tracking-wide font-semibold text-sky-500">
+                <span className="text-xs sm:text-xs uppercase tracking-wide font-semibold text-sky-500">
                   Step {stepIndex + 1} of {STEP_ORDER.length}
                 </span>
-                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
+                <span className="text-sm sm:text-xs font-medium text-gray-500 dark:text-gray-400">
                   {currentStep?.label}
                 </span>
               </div>
@@ -1035,7 +1035,7 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
             </div>
 
             {errorMessage && (
-              <div className="mt-3 sm:mt-4 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 p-2 sm:p-3 text-xs sm:text-sm text-rose-600 dark:text-rose-400">
+              <div className="mt-3 sm:mt-4 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 p-3 sm:p-3 text-sm sm:text-xs text-rose-600 dark:text-rose-400">
                 {errorMessage}
               </div>
             )}
@@ -1052,14 +1052,14 @@ const OnboardingFlow = ({ initialState, onUpdate, onComplete, visible, onClose, 
                     }
                   }}
                   disabled={isProcessing}
-                  className="text-xs sm:text-sm"
+                  className="text-base sm:text-sm min-h-[44px] touch-manipulation"
                 >
                   <ArrowLeft className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                   {stepIndex === 0 ? 'Back to Login' : 'Back'}
                 </Button>
-                <Button onClick={handleNext} disabled={isProcessing} className="text-xs sm:text-sm">
+                <Button onClick={handleNext} disabled={isProcessing} className="text-base sm:text-sm min-h-[44px] touch-manipulation">
                   Continue
-                  <ArrowRight className="ml-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             )}

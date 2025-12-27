@@ -51,13 +51,34 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Improve tap targets on mobile */
+/* Improve tap targets on mobile - Enforce minimum sizes */
+button,
+a[role="button"],
+[role="button"] {
+  min-height: 44px;
+}
+
+/* Ensure inputs are touch-friendly */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+textarea,
+select {
+  min-height: 44px;
+  font-size: 16px; /* Prevent zoom on iOS */
+}
+
+/* Mobile-specific button improvements */
 @media (max-width: 768px) {
-  button,
-  a,
-  [role="button"] {
+  button:not([class*="min-h"]):not([class*="h-"]) {
     min-height: 44px;
-    min-width: 44px;
+    padding: 12px 16px;
+  }
+  
+  /* Ensure all buttons have readable text */
+  button {
+    font-size: 16px;
   }
 }
 

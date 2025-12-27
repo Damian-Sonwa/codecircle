@@ -1,20 +1,15 @@
 import {useQuery} from '@tanstack/react-query';
 import {api, endpoints} from '@/services/api';
 import {type Conversation} from '@/types';
-import {useAuthStore} from '@/store/authStore';
+import {useAppReady} from '@/hooks/useAppReady';
 
 interface UseConversationsOptions {
   type?: 'friend' | 'community' | 'private-circle' | 'all';
 }
 
 export const useConversations = (options?: UseConversationsOptions) => {
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const user = useAuthStore((state) => state.user);
+  const {appReady} = useAppReady();
   const {type = 'all'} = options || {};
-  
-  // Import useAppReady dynamically to avoid circular dependency
-  // For now, we'll check user and token directly
-  const isReady = Boolean(accessToken && user);
   
   return useQuery({
     queryKey: ['conversations', type],
@@ -30,7 +25,7 @@ export const useConversations = (options?: UseConversationsOptions) => {
       const {data} = await api.get<Conversation[]>(url);
       return data;
     },
-    enabled: isReady, // Only fetch when app is ready
+    enabled: appReady, // CRITICAL: Only fetch when app is ready (auth + onboarding complete)
     retry: 1,
     staleTime: 30000, // Cache for 30 seconds
     refetchOnMount: true, // Always refetch on mount when enabled

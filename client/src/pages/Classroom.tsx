@@ -6,18 +6,22 @@ import {useNotificationStore} from '@/store/notificationStore';
 import {LiveSessionApplicationForm} from '@/components/Classroom/LiveSessionApplicationForm';
 import {ApplicationStatusDisplay} from '@/components/Classroom/ApplicationStatusDisplay';
 import {ClassroomEnvironment} from '@/components/Classroom/ClassroomEnvironment';
+import {useAppReady} from '@/hooks/useAppReady';
+import {AppLoader} from '@/components/layout/AppLoader';
 
 export const ClassroomPage = () => {
+  const {appReady} = useAppReady();
   const queryClient = useQueryClient();
   const pushNotification = useNotificationStore((state) => state.push);
   
-  // Check application status
+  // Check application status - only when app is ready
   const {data: applicationStatus} = useQuery<{status: string; application: LiveSessionApplication | null}>({
     queryKey: ['live-session-application-status'],
     queryFn: async () => {
       const {data} = await api.get(endpoints.liveSessions.applicationStatus);
       return data;
     },
+    enabled: appReady, // CRITICAL: Wait for appReady
   });
 
   const {data: classes = []} = useQuery({
@@ -25,8 +29,13 @@ export const ClassroomPage = () => {
     queryFn: async () => {
       const {data} = await api.get<Classroom[]>(endpoints.classrooms.root);
       return data;
-    }
+    },
+    enabled: appReady, // CRITICAL: Wait for appReady
   });
+
+  if (!appReady) {
+    return <AppLoader message="Loading classroom..." />;
+  }
 
   const registerMutation = useMutation({
     mutationFn: async ({classroomId, sessionId}: {classroomId: string; sessionId: string}) => {
@@ -44,11 +53,11 @@ export const ClassroomPage = () => {
   const showClassroom = applicationStatus?.application?.status === 'accepted' && applicationStatus.application.roomId;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-8 sm:pb-14 pt-16 sm:pt-20 md:pt-24">
-      <header className="rounded-2xl sm:rounded-[2rem] border border-white/10 bg-slate-900/60 p-4 sm:p-6 md:p-10 shadow-glass">
-        <p className="text-[10px] sm:text-xs uppercase tracking-[0.25em] sm:tracking-[0.35em] text-slate-400">Classroom</p>
-        <h1 className="mt-2 sm:mt-3 text-xl sm:text-2xl md:text-3xl font-semibold text-white">Live sessions & resources</h1>
-        <p className="mt-2 max-w-2xl text-xs sm:text-sm text-slate-300">
+    <div className="mx-auto w-full max-w-6xl px-3 sm:px-4 md:px-6 pb-4 sm:pb-8 pt-12 sm:pt-16">
+      <header className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6 shadow-glass">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Classroom</p>
+        <h1 className="mt-2 text-xl sm:text-2xl md:text-3xl font-semibold text-white">Live sessions & resources</h1>
+        <p className="mt-2 max-w-2xl text-base text-slate-300">
           {showClassroom
             ? 'Join interactive live sessions with instructors and peers'
             : 'Apply for live sessions to join interactive classes with instructors and peers'}
@@ -57,28 +66,28 @@ export const ClassroomPage = () => {
 
       {/* Show Classroom Environment if accepted */}
       {showClassroom && applicationStatus.application && (
-        <div className="mt-6 sm:mt-10">
+        <div className="mt-4 sm:mt-6">
           <ClassroomEnvironment application={applicationStatus.application} />
         </div>
       )}
 
       {/* Show Application Status if pending/rejected */}
       {showApplicationStatus && (
-        <div className="mt-6 sm:mt-10">
+        <div className="mt-4 sm:mt-6">
           <ApplicationStatusDisplay />
         </div>
       )}
 
       {/* Show Application Form if no application */}
       {showApplicationForm && (
-        <div className="mt-6 sm:mt-10">
+        <div className="mt-4 sm:mt-6">
           <LiveSessionApplicationForm />
         </div>
       )}
 
       {/* Show regular classroom sessions below */}
       {!showClassroom && (
-        <div className="mt-6 sm:mt-10 space-y-4 sm:space-y-6">
+        <div className="mt-4 sm:mt-6 space-y-4">
           {classes.map((classroom) => (
             <article key={classroom._id} className="glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

@@ -610,8 +610,8 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
         </div>
       )}
 
-      {/* Input Bar - WhatsApp-like layout */}
-      <form onSubmit={handleSend} className="h-16 px-3 sm:px-4 flex items-center gap-2 sm:gap-3">
+      {/* Input Bar - WhatsApp-like layout - Fixed to bottom */}
+      <form onSubmit={handleSend} className="sticky bottom-0 w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 flex items-center gap-2 flex-shrink-0">
         <input
           type="file"
           ref={fileInputRef}
@@ -621,7 +621,7 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
           onChange={handleFileSelect}
         />
 
-        {/* Emoji Button */}
+        {/* Emoji Button - Touch-friendly */}
         <motion.button
           type="button"
           data-emoji-button
@@ -630,31 +630,31 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           disabled={isSending || isRecording}
           className={cn(
-            'flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full transition disabled:opacity-50 flex-shrink-0',
+            'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition disabled:opacity-50 flex-shrink-0 touch-manipulation',
             showEmojiPicker
               ? 'bg-sky-500/20 text-sky-500'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
           )}
           title="Add emoji"
         >
-          <Smile className="h-5 w-5 sm:h-6 sm:w-6" />
+          <Smile className="h-5 w-5" />
         </motion.button>
 
-        {/* Attachment Button */}
+        {/* Attachment Button - Touch-friendly */}
         <motion.button
           type="button"
           whileHover={{scale: 1.05}}
           whileTap={{scale: 0.95}}
           onClick={() => fileInputRef.current?.click()}
           disabled={isSending || isRecording}
-          className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50 flex-shrink-0 touch-manipulation"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50 flex-shrink-0 touch-manipulation"
           title="Attach file"
         >
-          <Paperclip className="h-5 w-5 sm:h-6 sm:w-6" />
+          <Paperclip className="h-5 w-5" />
         </motion.button>
 
-        {/* Text Input - Large WhatsApp-style */}
-        <div className="flex-1 relative">
+        {/* Text Input - Large WhatsApp-style, touch-friendly */}
+        <div className="flex-1 relative min-w-0">
           <textarea
             ref={inputRef}
             value={composerText}
@@ -664,12 +664,12 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
             onBlur={handleTypingStop}
             placeholder="Type a message"
             disabled={isSending || isRecording}
-            className="w-full h-11 sm:h-12 px-4 sm:px-5 py-2.5 sm:py-3 resize-none rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 disabled:opacity-50 touch-manipulation"
+            className="w-full min-h-[44px] px-4 py-3 resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 disabled:opacity-50 touch-manipulation"
             style={{maxHeight: '120px'}}
           />
         </div>
 
-        {/* Voice Recording Button or Send Button */}
+        {/* Voice Recording Button or Send Button - Touch-friendly */}
         {composerText.trim() || attachments.length > 0 ? (
           <motion.button
             type="submit"
@@ -677,14 +677,14 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
             whileTap={{scale: canSend ? 0.95 : 1}}
             disabled={!canSend}
             className={cn(
-              'flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0',
+              'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 touch-manipulation',
               canSend
                 ? 'bg-sky-500 text-white hover:bg-sky-600 hover:shadow-lg'
                 : 'bg-gray-300 dark:bg-gray-600 text-gray-400'
             )}
             title="Send message"
           >
-            {isSending ? <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" /> : <Send className="h-5 w-5 sm:h-6 sm:w-6" />}
+            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </motion.button>
         ) : (
           <motion.button
@@ -694,14 +694,14 @@ export const ChatInput = ({conversationId, conversationType = 'group', groupId, 
             onClick={isRecording ? stopRecording : startRecording}
             disabled={isSending || voiceUnsupported}
             className={cn(
-              'flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full transition disabled:opacity-50 flex-shrink-0',
+              'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition disabled:opacity-50 flex-shrink-0 touch-manipulation',
               isRecording
                 ? 'bg-rose-500 text-white'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             )}
             title={isRecording ? 'Stop recording' : 'Record voice message'}
           >
-            {isRecording ? <Square className="h-5 w-5 sm:h-6 sm:w-6" /> : <Mic className="h-5 w-5 sm:h-6 sm:w-6" />}
+            {isRecording ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </motion.button>
         )}
       </form>
